@@ -20,6 +20,15 @@ function loadMarketProducts() {
     if (!container) return;
     container.innerHTML = '';
     appState.products.forEach(p => container.appendChild(createProductCard(p)));
+    
+    // ربط حدث البحث في حقل الإدخال (مرة واحدة فقط لتجنب تكرار المستمعين)
+    const searchInput = document.getElementById('marketSearchInput');
+    if (searchInput && !searchInput._searchListenerAttached) {
+        searchInput.addEventListener('input', function() {
+            filterMarketProducts(this.value);
+        });
+        searchInput._searchListenerAttached = true;
+    }
 }
 
 // ========== فلترة منتجات المتجر ==========
@@ -27,9 +36,27 @@ function filterMarketProducts(query) {
     const container = document.getElementById('marketProducts');
     if (!container) return;
     container.innerHTML = '';
-    const filtered = appState.products.filter(p => p.name.toLowerCase().includes(query));
-    if (filtered.length === 0) container.innerHTML = '<p style="grid-column:span2; text-align:center; padding:30px; color:#666;">لا توجد منتجات مطابقة للبحث</p>';
-    else filtered.forEach(p => container.appendChild(createProductCard(p)));
+    
+    // إظهار/إخفاء زر مسح البحث
+    const clearBtn = document.getElementById('clearSearch');
+    if (clearBtn) {
+        clearBtn.style.display = query ? 'block' : 'none';
+    }
+    
+    const searchTerm = query.toLowerCase().trim();
+    const filtered = appState.products.filter(p => {
+        if (!searchTerm) return true;
+        const name = (p.name || '').toLowerCase();
+        const desc = (p.description || '').toLowerCase();
+        const cat = (p.category || '').toLowerCase();
+        return name.includes(searchTerm) || desc.includes(searchTerm) || cat.includes(searchTerm);
+    });
+    
+    if (filtered.length === 0) {
+        container.innerHTML = '<p style="grid-column:span2; text-align:center; padding:30px; color:#666;">لا توجد منتجات مطابقة للبحث</p>';
+    } else {
+        filtered.forEach(p => container.appendChild(createProductCard(p)));
+    }
 }
 
 // ========== مسح البحث ==========
@@ -336,6 +363,79 @@ function renderProductsTableAdmin(data) {
     }).join('');
 }
 
+// ====== دوال المنتجات (إدارة المؤسس) ======
+
+// ملاحظة: دالة deleteProductAdmin موجودة في supabase.js
+// يتم استدعاؤها عبر window.deleteProductAdmin
+
+// حذف منتج نهائياً من قاعدة البيانات (استخدام بحذر)
+async function hardDeleteProductAdmin(productId) {
+    if (!productId) throw new Error('معرف المنتج مطلوب');
+    
+    const { data, error } = await supabaseClient
+        .from('products')
+        .delete()
+        .eq('id', productId)
+        .select()
+        .maybeSingle();
+    
+    if (error) throw error;
+    await logActivity(appState.user.id, 'hard_delete_product_admin', { product_id: productId });
+    return data;
+}
+
+// دالة تأكيد الحذف من واجهة المؤسس (تم تعديلها لاستخدام hardDeleteProductAdmin)
+window.deleteProductAdminConfirm = async function(productId) {
+    if (!productId) {
+        showToast('معرف المنتج غير صحيح', 'error');
+        return;
+    }
+
+    // طلب تأكيد من المستخدم
+    if (!confirm('⚠️ هل أنت متأكد من حذف هذا المنتج نهائياً؟\nسيتم حذف المنتج وجميع بياناته بشكل دائم.')) {
+        return;
+    }
+
+    showLoading(true);
+    try {
+        // استدعاء دالة الحذف الفعلي
+        await window.hardDeleteProductAdmin(productId);
+        showToast('✅ تم حذف المنتج نهائياً', 'success');
+        
+        // تحديث الجدول وعرض المنتجات
+        await loadProductsTableAdmin();
+        
+        // تحديث قائمة المنتجات في المتجر
+        await loadProductsFromDB();
+        loadMarketProducts();
+        loadFeaturedProducts();
+        
+    } catch (err) {
+        console.error('❌ خطأ في حذف المنتج:', err);
+        showToast(err.message || 'فشل حذف المنتج', 'error');
+    } finally {
+        showLoading(false);
+    }
+};
+
+// دالة حذف فوري (بدون تأكيد - تستخدم في بعض الحالات)
+async function forceDeleteProductAdmin(productId) {
+    if (!productId) return;
+    showLoading(true);
+    try {
+        await hardDeleteProductAdmin(productId);
+        showToast('✅ تم حذف المنتج نهائياً', 'success');
+        await loadProductsTableAdmin();
+        await loadProductsFromDB();
+        loadMarketProducts();
+        loadFeaturedProducts();
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
 // دوال الإجراءات
 window.viewProductDetails = async function(productId) {
     const product = await supabaseClient.from('products').select('*').eq('id', productId).single();
@@ -388,18 +488,6 @@ window.reviewProductAdmin = async function(productId) {
     try {
         await updateProductStatusAdmin(productId, 'review');
         showToast('تم وضع المنتج قيد المراجعة', 'success');
-        loadProductsTableAdmin();
-    } catch (err) {
-        showToast(err.message, 'error');
-    } finally { showLoading(false); }
-};
-
-window.deleteProductAdminConfirm = async function(productId) {
-    if (!confirm('هل أنت متأكد من حذف هذا المنتج نهائياً؟')) return;
-    showLoading(true);
-    try {
-        await deleteProductAdmin(productId);
-        showToast('تم حذف المنتج', 'success');
         loadProductsTableAdmin();
     } catch (err) {
         showToast(err.message, 'error');
@@ -1640,3 +1728,12 @@ window.shareStoreLink = shareStoreLink;
 window.showStorePage = showStorePage;
 window.openProductDetailFromStore = openProductDetailFromStore;
 window.togglePasswordVisibility = togglePasswordVisibility;  // ✅ إضافة الدالة الجديدة
+// تصدير دوال إدارة المنتجات (المؤسس)
+// ملاحظة: deleteProductAdmin موجودة في supabase.js ويتم تصديرها هناك
+window.hardDeleteProductAdmin = hardDeleteProductAdmin;
+window.deleteProductAdminConfirm = deleteProductAdminConfirm;
+window.forceDeleteProductAdmin = forceDeleteProductAdmin;
+window.loadProductsTableAdmin = loadProductsTableAdmin;
+window.renderProductsTableAdmin = renderProductsTableAdmin;
+window.filterProductsAdminData = filterProductsAdminData;
+window.productsAdminFilter = productsAdminFilter;
