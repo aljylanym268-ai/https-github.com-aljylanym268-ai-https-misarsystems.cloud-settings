@@ -398,9 +398,12 @@ window.deleteProductAdminConfirm = async function(productId) {
 
     showLoading(true);
     try {
-        // استدعاء دالة الحذف الفعلي
-        await window.hardDeleteProductAdmin(productId);
-        showToast('✅ تم حذف المنتج نهائياً', 'success');
+        const { error } = await supabaseClient.rpc('delete_product_with_orders', {
+            product_id: productId
+        });
+        if (error) throw error;
+
+        showToast('✅ تم حذف المنتج وجميع طلباته بنجاح', 'success');
         
         // تحديث الجدول وعرض المنتجات
         await loadProductsTableAdmin();
