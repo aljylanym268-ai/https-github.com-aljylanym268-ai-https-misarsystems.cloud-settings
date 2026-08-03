@@ -1113,15 +1113,16 @@
 <!-- ========== ملفات الجافا سكريبت ========== -->
 <script src="js/supabase.js"></script>
 <script src="js/admin-dashboard.js"></script>
-<script src="js/js/admin-couriers.js"></script>
-<script src="js/js/js/admin-users.js"></script>
-<script src="js/js/js/js/admin-products.js"></script>
-<script src="js/js/js/js/js/admin-properties.js"></script>
-<script src="js/js/js/js/js/js/admin-services.js"></script>
-<script src="js/js/js/js/js/js/js/admin-orders.js"></script>
-<script src="js/js/js/js/js/js/js/js/admin-logs.js"></script>
-<script src="js/js/js/js/js/js/js/js/js/admin-settings.js"></script>
-<script src="js/js/admin-banners.js"></script>   <!-- يجب أن يأتي بعد supabase.js -->
+<script src="js/admin-reports.js"></script>
+<script src="js/admin-couriers.js"></script>
+<script src="js/admin-users.js"></script>
+<script src="js/admin-products.js"></script>
+<script src="js/admin-properties.js"></script>
+<script src="js/admin-services.js"></script>
+<script src="js/admin-orders.js"></script>
+<script src="js/admin-logs.js"></script>
+<script src="js/admin-settings.js"></script>
+<script src="js/admin-banners.js"></script>   <!-- يجب أن يأتي بعد supabase.js -->
 <script src="js/products.js"></script>
 <script src="js/product.js"></script>
 <script src="js/cart.js"></script>
@@ -1176,6 +1177,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
             } catch (e) {
                 console.error('❌ خطأ أثناء إنهاء التحميل:', e);
+                const loadingScreen = document.getElementById('loadingScreen');
+                if (loadingScreen) loadingScreen.style.display = 'none';
             }
         }
 
@@ -1224,7 +1227,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         // 4. إخفاء شاشة التحميل وعرض الشاشة المناسبة (دائماً بغض النظر عن الأخطاء)
-        setTimeout(finishLoading, 1500);
+        setTimeout(finishLoading, 3000);
 
         // ======== إضافة مستمع حالة المصادقة ========
         supabaseClient.auth.onAuthStateChange(async (event, session) => {

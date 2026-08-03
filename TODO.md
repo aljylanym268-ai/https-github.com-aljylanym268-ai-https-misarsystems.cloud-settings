@@ -19,7 +19,7 @@
 - تغيير `js/admin-orders.js` → `js/js/js/js/js/js/js/admin-orders.js`
 - تغيير `js/admin-logs.js` → `js/js/js/js/js/js/js/js/admin-logs.js`
 - تغيير `js/admin-settings.js` → `js/js/js/js/js/js/js/js/js/admin-settings.js`
-- إصلاح مسار `js/admin-reports.js` (إنشاء الملف المفقود)
+- إصلاح مسار `js/admin-reports.js` (تم إنشاء الملف المفقود)
 
 #### الخطوة 2: إنشاء ملف admin-reports.js
 - إنشاء ملف يحتوي على الدوال الأساسية للبلاغات
