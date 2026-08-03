@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إنشاء Storage Buckets - Misar Systems</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Arial, sans-serif; 
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            padding: 40px;
+            max-width: 700px;
+            width: 100%;
+        }
+        h1 {
+            color: #1a237e;
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        h1 i { color: #D4AF37; }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .bucket-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+        .bucket-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            background: #f8f9ff;
+            border-radius: 14px;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+        .bucket-item.created {
+            border-color: #4caf50;
+            background: #e8f5e9;
+        }
+        .bucket-item.failed {
+            border-color: #f44336;
+            background: #ffebee;
+        }
+        .bucket-item .icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            background: #e8eaf6;
+            color: #1a237e;
+            flex-shrink: 0;
+        }
+        .bucket-item .info { flex: 1; }
+        .bucket-item .info .name {
+            font-weight: 700;
+            color: #1a237e;
+            font-size: 1rem;
+        }
+        .bucket-item .info .desc {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 2px;
+        }
+        .bucket-item .status {
+            font-size: 1.2rem;
+            width: 30px;
+            text-align: center;
+        }
+        .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .btn {
+            padding: 16px 28px;
+            border-radius: 14px;
+            border: none;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .btn-primary { background: #1a237e; color: white; }
+        .btn-primary:hover { background: #283593; transform: translateY(-2px); }
+        .btn-primary:disabled { background: #9fa8da; cursor: not-allowed; transform: none; }
+        .btn-secondary { background: #e8eaf6; color: #1a237e; }
+        .btn-secondary:hover { background: #c5cae9; }
+        .result {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 14px;
+            display: none;
+        }
+        .result.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            display: block;
+            border: 1px solid #a5d6a7;
+        }
+        .result.error {
+            background: #ffebee;
+            color: #c62828;
+            display: block;
+            border: 1px solid #ef9a9a;
+        }
+        .steps {
+            background: #fff8e1;
+            border: 1px solid #ffe082;
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        .steps h3 {
+            color: #e65100;
+            margin-bottom: 12px;
+            font-size: 1rem;
+        }
+        .steps ol {
+            padding-right: 20px;
+            color: #555;
+            line-height: 1.8;
+            font-size: 0.9rem;
+        }
+        .steps code {
+            background: #fff3e0;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: #e65100;
+        }
+        .progress-bar {
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #1a237e;
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+        .log-area {
+            background: #1a1a2e;
+            color: #00ff88;
+            padding: 16px;
+            border-radius: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            direction: ltr;
+            text-align: left;
+        }
+        .log-area:empty { display: none; }
+        .note {
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            border-radius: 14px;
+            padding: 16px 20px;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #1565c0;
+            line-height: 1.6;
+        }
+        .note i { margin-left: 8px; }
+        .key-input {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        .key-input input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            direction: ltr;
+            text-align: left;
+        }
+        .key-input input:focus {
+            outline: none;
+            border-color: #1a237e;
+        }
+        .key-input label {
+            font-weight: 700;
+            color: #1a237e;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            <i class="fas fa-cloud-upload-alt"></i>
+            إنشاء Storage Buckets
+        </h1>
+        <p class="subtitle">
+            هذا الملف يقوم بإنشاء جميع حاويات التخزين (Buckets) المطلوبة لتطبيق Misar Systems في Supabase.
+            <br><strong>مطلوب:</strong> استخدام <strong>Service Role Key</strong> (وليس Anon Key) لإنشاء buckets.
+        </p>
+
+        <!-- حقل إدخال المفتاح -->
+        <div class="key-input">
+            <label>🔑 Service Role Key:</label>
+            <input type="text" id="serviceKeyInput" 
+                   placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." 
+                   value="sb_publishable_Rqi9qMZgIrslWSDc61gG-A_QGQxcvNr">
+        </div>
+
+        <!-- طريقة بديلة عبر SQL -->
+        <div class="steps">
+            <h3><i class="fas fa-database"></i> الطريقة الموصى بها: استخدام SQL Editor</h3>
+            <ol>
+                <li>اذهب إلى <a href="https://supabase.com/dashboard/project/wwojtkxwmgkrudtevbcb/sql/new" target="_blank">Supabase SQL Editor</a></li>
+                <li>انسخ محتوى ملف <code>create-buckets.sql</code> (بجانب هذا الملف)</li>
+                <li>الصقه في الـ SQL Editor واضغط <strong>Run</strong></li>
+                <li>عد إلى هنا واضغط <strong>التحقق من الـ Buckets</strong></li>
+            </ol>
+        </div>
+
+        <div class="bucket-list" id="bucketList">
+            <div class="bucket-item" data-bucket="product-images">
+                <div class="icon"><i class="fas fa-box"></i></div>
+                <div class="info">
+                    <div class="name">product-images</div>
+                    <div class="desc">صور المنتجات - عام</div>
+                </div>
+                <div class="status">⏳</div>
+            </div>
+            <div class="bucket-item" data-bucket="review-media">
+                <div class="icon"><i class="fas fa-star"></i></div>
+                <div class="info">
+                    <div class="name">review-media</div>
+                    <div class="desc">صور وفيديوهات التقييمات - عام</div>
+                </div>
+                <div class="status">⏳</div>
+            </div>
+            <div class="bucket-item" data-bucket="user-images">
+                <div class="icon"><i class="fas fa-user"></i></div>
+                <div class="info">
+                    <div class="name">user-images</div>
+                    <div class="desc">الصور الشخصية للمستخدمين - عام</div>
+                </div>
+                <div class="status">⏳</div>
+            </div>
+            <div class="bucket-item" data-bucket="banner-images">
+                <div class="icon"><i class="fas fa-image"></i></div>
+                <div class="info">
+                    <div class="name">banner-images</div>
+                    <div class="desc">صور الإعلانات - عام</div>
+                </div>
+                <div class="status">⏳</div>
+            </div>
+            <div class="bucket-item" data-bucket="property-images">
+                <div class="icon"><i class="fas fa-building"></i></div>
+                <div class="info">
+                    <div class="name">property-images</div>
+                    <div class="desc">صور العقارات - عام</div>
+                </div>
+                <div class="status">⏳</div>
+            </div>
+        </div>
+
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-primary" id="createBtn" onclick="createAllBuckets()">
+                <i class="fas fa-play"></i> إنشاء جميع Buckets
+            </button>
+            <button class="btn btn-secondary" onclick="checkAllBuckets()">
+                <i class="fas fa-sync-alt"></i> التحقق من الـ Buckets
+            </button>
+        </div>
+
+        <div class="result" id="result"></div>
+        <div class="log-area" id="logArea"></div>
+
+        <div class="note">
+            <i class="fas fa-info-circle"></i>
+            <strong>ملاحظة:</strong> بعد إنشاء الـ buckets، ارجع للصفحة الرئيسية واضغط F5 (تحديث).
+            <br>إذا استمرت المشكلة، تأكد من أنك تستخدم <strong>Service Role Key</strong> (وليس Anon Key).
+            <br>يمكنك الحصول على Service Role Key من: Supabase Dashboard → Settings → API → service_role key.
+        </div>
+    </div>
+
+    <script>
+        // ==================== الإعدادات ====================
+        const SUPABASE_URL = 'https://wwojtkxwmgkrudtevbcb.supabase.co';
+
+        const BUCKETS = [
+            { id: 'product-images', name: 'product-images', desc: 'صور المنتجات' },
+            { id: 'review-media', name: 'review-media', desc: 'صور وفيديوهات التقييمات' },
+            { id: 'user-images', name: 'user-images', desc: 'الصور الشخصية' },
+            { id: 'banner-images', name: 'banner-images', desc: 'صور الإعلانات' },
+            { id: 'property-images', name: 'property-images', desc: 'صور العقارات' }
+        ];
+
+        let supabaseAdmin = null;
+
+        function getServiceKey() {
+            let key = document.getElementById('serviceKeyInput').value.trim();
+            if (!key) {
+                key = 'sb_publishable_Rqi9qMZgIrslWSDc61gG-A_QGQxcvNr';
+            }
+            return key;
+        }
+
+        function getSupabaseClient() {
+            if (!supabaseAdmin) {
+                const key = getServiceKey();
+                supabaseAdmin = supabase.createClient(SUPABASE_URL, key);
+            }
+            return supabaseAdmin;
+        }
+
+        function log(msg) {
+            const area = document.getElementById('logArea');
+            const timestamp = new Date().toLocaleTimeString();
+            area.textContent += '[' + timestamp + '] ' + msg + '\n';
+            area.scrollTop = area.scrollHeight;
+        }
+
+        function updateProgress(percent) {
+            document.getElementById('progressFill').style.width = percent + '%';
+        }
+
+        function updateBucketStatus(bucketName, status, isError) {
+            const items = document.querySelectorAll('.bucket-item');
+            items.forEach(function(item) {
+                if (item.dataset.bucket === bucketName) {
+                    const statusEl = item.querySelector('.status');
+                    if (isError) {
+                        item.className = 'bucket-item failed';
+                        statusEl.textContent = '❌';
+                    } else if (status === 'created' || status === 'exists') {
+                        item.className = 'bucket-item created';
+                        statusEl.textContent = '✅';
+                    } else {
+                        item.className = 'bucket-item';
+                        statusEl.textContent = '⏳';
+                    }
+                }
+            });
+        }
+
+        function showResult(message, type) {
+            const result = document.getElementById('result');
+            result.className = 'result ' + (type || 'success');
+            var icon = type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle';
+            result.innerHTML = '<i class="fas ' + icon + '"></i> ' + message;
+        }
+
+        function resetAllStatus() {
+            BUCKETS.forEach(function(b) {
+                updateBucketStatus(b.id, 'pending', false);
+            });
+            updateProgress(0);
+            document.getElementById('result').className = 'result';
+            document.getElementById('result').innerHTML = '';
+            document.getElementById('logArea').textContent = '';
+        }
+
+        // ==================== التحقق من الـ Buckets ====================
+        async function checkAllBuckets() {
+            resetAllStatus();
+            log('🔍 جاري التحقق من الـ buckets...');
+            var btn = document.getElementById('createBtn');
+            btn.disabled = true;
+            
+            try {
+                const client = getSupabaseClient();
+                var total = BUCKETS.length;
+                var checked = 0;
+
+                for (var i = 0; i < BUCKETS.length; i++) {
+                    var b = BUCKETS[i];
+                    log('🔎 التحقق من: ' + b.name + '...');
+                    
+                    try {
+                        var result = await client.storage.from(b.id).list('', { limit: 1 });
+                        if (result.error && result.error.message && result.error.message.includes('Bucket not found')) {
+                            updateBucketStatus(b.id, 'missing', true);
+                            log('❌ ' + b.name + ' غير موجود');
+                        } else {
+                            updateBucketStatus(b.id, 'exists', false);
+                            log('✅ ' + b.name + ' موجود');
+                        }
+                    } catch (err) {
+                        if (err.message && err.message.includes('Bucket not found')) {
+                            updateBucketStatus(b.id, 'missing', true);
+                            log('❌ ' + b.name + ' غير موجود');
+                        } else {
+                            updateBucketStatus(b.id, 'error', true);
+                            log('⚠️ ' + b.name + ' خطأ: ' + (err.message || 'غير معروف'));
+                        }
+                    }
+                    
+                    checked++;
+                    updateProgress(Math.round((checked / total) * 100));
+                }
+
+                var missingBuckets = document.querySelectorAll('.bucket-item.failed');
+                if (missingBuckets.length === 0) {
+                    showResult('✅ جميع الـ 5 buckets موجودة وجاهزة!', 'success');
+                    log('✅ تم التحقق بنجاح - جميع buckets جاهزة');
+                } else {
+                    showResult('⚠️ يوجد ' + missingBuckets.length + ' buckets غير موجودة. اضغط "إنشاء جميع Buckets"', 'error');
+                    log('⚠️ يوجد ' + missingBuckets.length + ' buckets غير موجودة');
+                }
+
+            } catch (err) {
+                showResult('❌ خطأ في الاتصال: ' + (err.message || 'تحقق من Service Role Key'), 'error');
+                log('❌ خطأ: ' + (err.message || 'غير معروف'));
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // ==================== إنشاء الـ Buckets ====================
+        async function createAllBuckets() {
+            resetAllStatus();
+            log('🚀 جاري إنشاء الـ buckets...');
+            var btn = document.getElementById('createBtn');
+            btn.disabled = true;
+
+            try {
+                const client = getSupabaseClient();
+                var total = BUCKETS.length;
+                var created = 0;
+                var errors = 0;
+
+                for (var i = 0; i < BUCKETS.length; i++) {
+                    var b = BUCKETS[i];
+                    log('📦 إنشاء: ' + b.name + '...');
+                    
+                    try {
+                        var result = await client.storage.createBucket(b.id, {
+                            public: true,
+                            allowedMimeTypes: ['image/*', 'video/mp4', 'video/webm', 'video/ogg'],
+                            fileSizeLimit: 52428800 // 50MB
+                        });
+                        
+                        if (result.error) {
+                            if (result.error.message && result.error.message.includes('already exists')) {
+                                updateBucketStatus(b.id, 'exists', false);
+                                log('✅ ' + b.name + ' موجود مسبقاً');
+                            } else {
+                                throw result.error;
+                            }
+                        } else {
+                            updateBucketStatus(b.id, 'created', false);
+                            log('✅ ' + b.name + ' تم إنشاؤه بنجاح');
+                        }
+                        created++;
+                    } catch (err) {
+                        if (err.message && err.message.includes('already exists')) {
+                            updateBucketStatus(b.id, 'exists', false);
+                            log('✅ ' + b.name + ' موجود مسبقاً');
+                            created++;
+                        } else {
+                            updateBucketStatus(b.id, 'error', true);
+                            log('❌ ' + b.name + ' فشل: ' + (err.message || 'خطأ غير معروف'));
+                            errors++;
+                        }
+                    }
+                    
+                    updateProgress(Math.round(((i + 1) / total) * 100));
+                }
+
+                if (errors === 0) {
+                    showResult('✅ تم إنشاء/تأكيد جميع الـ ' + created + ' buckets بنجاح!', 'success');
+                    log('✅ تم إنشاء/تأكيد ' + created + ' buckets');
+                    log('💡 نصيحة: ارجع للصفحة الرئيسية واضغط F5');
+                } else {
+                    showResult('⚠️ تم إنشاء ' + created + ' buckets، ولكن فشل ' + errors + ' buckets', 'error');
+                    log('⚠️ تم إنشاء ' + created + ' من أصل ' + total + ' buckets');
+                }
+
+            } catch (err) {
+                showResult('❌ خطأ في الاتصال: ' + (err.message || 'تحقق من Service Role Key'), 'error');
+                log('❌ خطأ: ' + (err.message || 'غير معروف'));
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // التحقق التلقائي عند تحميل الصفحة
+        window.addEventListener('DOMContentLoaded', function() {
+            // تأخير بسيط للسماح بتحميل المكتبات
+            setTimeout(function() {
+                log('🔧 تم تحميل الأداة. جاهز للإنشاء أو التحقق.');
+                log('ℹ️ استخدم Service Role Key من Supabase Dashboard');
+                log('ℹ️ أو استخدم الطريقة البديلة عبر SQL Editor');
+            }, 500);
+        });
+
+        // تصدير الدوال
+        window.createAllBuckets = createAllBuckets;
+        window.checkAllBuckets = checkAllBuckets;
+    </script>
+</body>
+</html>
