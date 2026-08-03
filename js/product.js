@@ -12,7 +12,13 @@ async function openProductDetail(product) {
 
     // تحديث الرابط مع معرف المنتج
     const newUrl = `${window.location.pathname}?id=${product.id}`;
-    window.history.pushState({ productId: product.id }, '', newUrl);
+    // إذا كنا نتصفح منتجاً آخر من داخل شاشة المنتج، استبدل الرابط بدل تكديسه في سجل المتصفح
+    // حتى لا يعود المنتج السابق تلقائياً عند الضغط على زر الرجوع
+    if (appState.currentScreen === 'productDetailScreen') {
+        window.history.replaceState({ productId: product.id }, '', newUrl);
+    } else {
+        window.history.pushState({ productId: product.id }, '', newUrl);
+    }
 
     appState.currentProduct = product;
 

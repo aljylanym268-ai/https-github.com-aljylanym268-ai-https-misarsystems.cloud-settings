@@ -1,0 +1,173 @@
+﻿                if (typeof refreshDeliveryDashboard === 'function') refreshDeliveryDashboard();
+            } else if (appState.currentScreen === 'ordersScreen') {
+                if (typeof loadBuyerOrdersWithTimeline === 'function') loadBuyerOrdersWithTimeline();
+            }
+            loadUnreadNotificationsCount();
+        }).subscribe();
+    if (appState.notificationsSubscription) appState.notificationsSubscription.unsubscribe();
+    appState.notificationsSubscription = supabaseClient.channel('notifications-channel')
+        .on('postgres_changes', {
+            event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${appState.user.id}`
+        }, (payload) => {
+            showToast(payload.new.title, 'info');
+            loadUnreadNotificationsCount();
+        }).subscribe();
+}
+
+// ============================================================
+// Ø§Ù„ØªÙ†Ù‚Ù„ Ø¨ÙŠÙ† Ø§Ù„Ø´Ø§Ø´Ø§Øª
+// ============================================================
+function showScreen(screenId) {
+    if (screenId === 'sellerDashboardScreen') {
+        if (!appState.user || appState.userData.account_type !== 'seller') {
+            showToast('Ù‡Ø°Ù‡ Ø§Ù„ØµÙØ­Ø© Ù…Ø®ØµØµØ© Ù„Ù„Ø¨Ø§Ø¦Ø¹ÙŠÙ† ÙÙ‚Ø·', 'error');
+            showScreen('homeScreen');
+            return;
+        }
+        if (typeof refreshSellerDashboard === 'function') refreshSellerDashboard();
+    }
+    if (screenId === 'deliveryDashboardScreen') {
+        if (!appState.user || appState.userData.account_type !== 'delivery') {
+            showToast('Ù‡Ø°Ù‡ Ø§Ù„ØµÙØ­Ø© Ù…Ø®ØµØµØ© Ù„Ù„Ù…Ù†Ø¯ÙˆØ¨ÙŠÙ† ÙÙ‚Ø·', 'error');
+            showScreen('homeScreen');
+            return;
+        }
+        if (typeof refreshDeliveryDashboard === 'function') refreshDeliveryDashboard();
+    }
+    if (screenId === 'founderDashboardScreen') {
+        if (!appState.user || appState.userData.account_type !== 'founder') {
+            showToast('Ù‡Ø°Ù‡ Ø§Ù„ØµÙØ­Ø© Ù…Ø®ØµØµØ© Ù„Ù„Ù…Ø¤Ø³Ø³ ÙÙ‚Ø·', 'error');
+            showScreen('homeScreen');
+            return;
+        }
+        loadGlobalFounderVisibility();
+        loadFounderStats();
+        loadPendingDeliveries();
+        if (typeof displayAllDeliveryPersons === 'function') displayAllDeliveryPersons();
+    }
+    if (screenId === 'ordersScreen') {
+        if (typeof loadBuyerOrdersWithTimeline === 'function') loadBuyerOrdersWithTimeline();
+    }
+    if (screenId === 'editProfileScreen') {
+        updateUserInfo();
+    }
+
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.remove('active');
+        screen.classList.add('hidden');
+    });
+    updateNavigation(screenId);
+    const screen = document.getElementById(screenId);
+    if (screen) {
+        screen.classList.remove('hidden');
+        screen.classList.add('active');
+        // Ø³Ø¬Ù„ Ø§Ù„ØªÙ†Ù‚Ù„: Ø¹Ù†Ø¯ Ø§Ù„Ø§Ù†ØªÙ‚Ø§Ù„ Ù„Ø´Ø§Ø´Ø© Ø±Ø¦ÙŠØ³ÙŠØ© (ØªØ§Ø¨) Ù†Ù…Ø³Ø­ Ø§Ù„Ø³Ø¬Ù„ØŒ
+        // ÙˆØ¹Ù†Ø¯ Ø§Ù„Ø§Ù†ØªÙ‚Ø§Ù„ Ù„Ø´Ø§Ø´Ø© ÙØ±Ø¹ÙŠØ© Ù†Ø¶ÙŠÙ Ø§Ù„Ø´Ø§Ø´Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ© Ù„Ù„Ø³Ø¬Ù„
+        if (appState.currentScreen !== screenId) {
+            const mainTabs = ['homeScreen', 'marketScreen', 'servicesScreen', 'cartScreen', 'profileScreen'];
+            if (mainTabs.includes(screenId)) {
+                appState.navStack = [];
+            } else {
+                appState.navStack.push(appState.currentScreen);
+            }
+            appState.previousScreen = appState.currentScreen;
+            appState.currentScreen = screenId;
+        }
+        const backBtn = document.querySelector('.back-btn');
+        if (backBtn) backBtn.classList.toggle('active', screenId !== 'homeScreen' && screenId !== 'locationScreen');
+    }
+    // Ø¹Ù†Ø¯ Ù…ØºØ§Ø¯Ø±Ø© ØµÙØ­Ø© Ø§Ù„Ù…Ù†ØªØ¬/Ø§Ù„Ù…ØªØ¬Ø± Ù†Ù†Ø¸Ù Ù…Ø¹Ù„Ù…Ø© Ø§Ù„Ø±Ø§Ø¨Ø· (?id=) Ø­ØªÙ‰ Ù„Ø§
+    // ÙŠÙØ¹Ø§Ø¯ ÙØªØ­ Ø§Ù„Ù…Ù†ØªØ¬ ØªÙ„Ù‚Ø§Ø¦ÙŠØ§Ù‹ Ø¹Ù†Ø¯ Ø¥Ø¹Ø§Ø¯Ø© ØªØ­Ù…ÙŠÙ„ Ø§Ù„ØµÙØ­Ø© Ø£Ùˆ Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ø§Ù„ØªØ¨ÙˆÙŠØ¨
+    if (screenId !== 'productDetailScreen' && screenId !== 'storeScreen') {
+        clearProductUrl();
+    }
+    if (screenId === 'marketScreen') {
+        const searchInput = document.getElementById('marketSearchInput');
+        if (searchInput) { searchInput.value = ''; }
+        const clearSearch = document.getElementById('clearSearch');
+        if (clearSearch) clearSearch.style.display = 'none';
+        if (typeof loadMarketProducts === 'function') loadMarketProducts();
+    }
+    if (screenId === 'profileScreen') updateProfileLocation();
+    if (screenId === 'editProfileScreen' && appState.user) updateProfileLocation();
+    if (screenId === 'servicesScreen') {
+        if (typeof loadServices === 'function') loadServices();
+    }
+    if (screenId === 'cartScreen') {
+        if (typeof loadCart === 'function') loadCart();
+    }
+    if (screenId === 'loginScreen' || screenId === 'registerScreen') setTimeout(addInputInteractions, 50);
+}
+function goBack() {
+    // ØªÙ†Ø¸ÙŠÙ Ø§Ù„Ø±Ø§Ø¨Ø· Ø¹Ù†Ø¯ Ø§Ù„Ø®Ø±ÙˆØ¬ Ù…Ù† ØµÙØ­Ø© Ø§Ù„Ù…Ù†ØªØ¬ Ø£Ùˆ Ø§Ù„Ù…ØªØ¬Ø±
+    if (appState.currentScreen === 'productDetailScreen' || appState.currentScreen === 'storeScreen') {
+        clearProductUrl();
+    }
+    if (appState.navStack.length > 0) {
+        const prev = appState.navStack.pop();
+        if (!prev || prev === appState.currentScreen) {
+            showScreen('homeScreen');
+            return;
+        }
+        // Ù†Ø¬Ø¹Ù„ Ø§Ù„Ø´Ø§Ø´Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ© ØªØ³Ø§ÙˆÙŠ Ø§Ù„Ù‡Ø¯Ù Ù…Ø¤Ù‚ØªØ§Ù‹ Ø­ØªÙ‰ Ù„Ø§ ÙŠÙØ¹Ø§Ø¯ Ø¥Ø¶Ø§ÙØªÙ‡ Ù„Ù„Ø³Ø¬Ù„
+        appState.currentScreen = prev;
+        showScreen(prev);
+    } else {
+        showScreen('homeScreen');
+    }
+}
+function clearProductUrl() {
+    if (new URLSearchParams(window.location.search).has('id')) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+}
+function updateNavigation(screenId) {
+    document.querySelectorAll('.nav-item').forEach((item, index) => {
+        item.classList.remove('active');
+        if (screenId === 'homeScreen' && index === 0) item.classList.add('active');
+        else if (screenId === 'marketScreen' && index === 1) item.classList.add('active');
+        else if (screenId === 'servicesScreen' && index === 2) item.classList.add('active');
+        else if (screenId === 'cartScreen' && index === 3) item.classList.add('active');
+        else if (screenId === 'profileScreen' && index === 4) item.classList.add('active');
+    });
+}
+function skipLogin() { showScreen('homeScreen'); }
+function addInputInteractions() {
+    const inputs = document.querySelectorAll('#loginScreen input, #registerScreen input');
+    const passwordInputs = document.querySelectorAll('#loginPassword, #registerPassword');
+    inputs.forEach(inp => {
+        inp.addEventListener('focus', () => setBearExpression('blink'));
+        inp.addEventListener('blur', () => setBearExpression(''));
+    });
+    passwordInputs.forEach(pw => {
+        pw.addEventListener('focus', () => setBearExpression('covering'));
+        pw.addEventListener('blur', () => setBearExpression(''));
+    });
+}
+function togglePasswordVisibility(inputId, toggleEl) {
+    const input = document.getElementById(inputId);
+    if (!input || !toggleEl) return;
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    const icon = toggleEl.querySelector('i');
+    if (icon) {
+        icon.className = isPassword ? 'fas fa-eye-slash' : 'fas fa-eye';
+    }
+}
+window.togglePasswordVisibility = togglePasswordVisibility;
+
+// ============================================================
+// Ø§Ù„Ø¯Ø±Ø¯Ø´Ø©
+// ============================================================
+function openChatbot() {
+    const chatbotScreen = document.getElementById('chatbotScreen');
+    if (chatbotScreen) chatbotScreen.classList.add('active');
+    const badge = document.getElementById('chatbotBadge');
+    if (badge) badge.style.display = 'none';
+    const messages = document.getElementById('chatMessages');
+    if (messages) messages.scrollTop = messages.scrollHeight;
+}
+function closeChatbot() {
+    const chatbotScreen = document.getElementById('chatbotScreen');
+    if (chatbotScreen) chatbotScreen.classList.remove('active');
+}

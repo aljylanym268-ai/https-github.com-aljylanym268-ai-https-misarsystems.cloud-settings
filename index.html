@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Misar Systems | مسار سيستمز</title>
+    <title>Misar
+         Systems | مسار سيستمز</title>
     <meta name="theme-color" content="#1a237e">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -195,7 +196,7 @@
                 <div class="header-left">
                     <button class="back-btn" onclick="goBack()"><i class="fas fa-arrow-right"></i></button>
                     <img src="https://i.ibb.co/XktM4crn/1767120438295.png" alt="Misar Systems" class="app-logo" loading="lazy">
-                    <div class="header-title">𓂀 Misar Systems 𓂀</div>
+                    <div class="header-title">Misar Systems</div>
                 </div>
                 <div class="header-actions">
                     <button class="header-icon" onclick="showScreen('cartScreen')"><i class="fas fa-shopping-cart"></i></button>
@@ -1112,89 +1113,118 @@
 <!-- ========== ملفات الجافا سكريبت ========== -->
 <script src="js/supabase.js"></script>
 <script src="js/admin-dashboard.js"></script>
-<script src="js/admin-couriers.js"></script>
-<script src="js/admin-users.js"></script>
-<script src="js/admin-products.js"></script>
-<script src="js/admin-properties.js"></script>
-<script src="js/admin-services.js"></script>
-<script src="js/admin-orders.js"></script>
-<script src="js/admin-reports.js"></script>
-<script src="js/admin-logs.js"></script>
-<script src="js/admin-settings.js"></script>
+<script src="js/js/admin-couriers.js"></script>
+<script src="js/js/js/admin-users.js"></script>
+<script src="js/js/js/js/admin-products.js"></script>
+<script src="js/js/js/js/js/admin-properties.js"></script>
+<script src="js/js/js/js/js/js/admin-services.js"></script>
+<script src="js/js/js/js/js/js/js/admin-orders.js"></script>
+<script src="js/js/js/js/js/js/js/js/admin-logs.js"></script>
+<script src="js/js/js/js/js/js/js/js/js/admin-settings.js"></script>
 <script src="js/js/admin-banners.js"></script>   <!-- يجب أن يأتي بعد supabase.js -->
 <script src="js/products.js"></script>
 <script src="js/product.js"></script>
 <script src="js/cart.js"></script>
 <script>
    // ======== التهيئة العامة ========
-    document.addEventListener('DOMContentLoaded', async function() {
+document.addEventListener('DOMContentLoaded', async function() {
         console.log('🚀 تطبيق Misar Systems بدأ التحميل...');
 
-        // ب
-        // 1. تحميل الموقع المخزن
-        const savedLocation = localStorage.getItem('misarUserLocation');
-        if (savedLocation) {
+        // ======== دالة إنهاء التحميل (تُستدعى دائماً) ========
+        // تمنع بقاء شاشة التحميل عالقة حتى لو فشل تحميل بعض البيانات
+        function finishLoading() {
             try {
-                appState.location = JSON.parse(savedLocation);
-            } catch(e) {}
+                const loadingScreen = document.getElementById('loadingScreen');
+                if (loadingScreen) loadingScreen.style.display = 'none';
+
+                // تحديد الشاشة الابتدائية إذا لم يكن محدداً
+                if (!appState.currentScreen) {
+                    appState.currentScreen = appState.location ? 'homeScreen' : 'locationScreen';
+                }
+
+                showScreen(appState.currentScreen);
+
+                // معالجة رابط التوجيه إن وجد (?id= أو ?store= أو ?founder=)
+                let handled = false;
+                try {
+                    if (typeof handleRoute === 'function') handled = handleRoute();
+                } catch (rErr) {
+                    console.error('❌ خطأ في handleRoute:', rErr);
+                }
+
+                if (appState.location) {
+                    if (typeof updateWelcomeLocation === 'function') updateWelcomeLocation();
+                    if (typeof updateProfileLocation === 'function') updateProfileLocation();
+                }
+
+                if (typeof toggleLoginMenu === 'function') toggleLoginMenu(!!appState.user);
+
+                const isSeller = appState.userData?.account_type === 'seller';
+                const isDelivery = appState.userData?.account_type === 'delivery';
+                const isFounder = appState.userData?.account_type === 'founder';
+
+                if (typeof toggleSellerMenuItem === 'function') toggleSellerMenuItem(isSeller);
+                if (typeof toggleDeliveryMenuItem === 'function') toggleDeliveryMenuItem(isDelivery);
+                if (typeof toggleFounderMenuItem === 'function') toggleFounderMenuItem(isFounder);
+                if (typeof addInputInteractions === 'function') addInputInteractions();
+
+                // إذا كان المستخدم مؤسساً، قم بتحميل لوحة التحكم
+                if (isFounder) {
+                    setTimeout(() => {
+                        if (typeof refreshFounderDashboard === 'function') refreshFounderDashboard();
+                    }, 500);
+                }
+            } catch (e) {
+                console.error('❌ خطأ أثناء إنهاء التحميل:', e);
+            }
         }
 
-        // 2. جلسة المستخدم
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if (session) {
-            const user = session.user;
-            appState.user = {
-                id: user.id,
-                email: user.email,
-                user_metadata: user.user_metadata
-            };
-            await loadUserData();
-            appState.currentScreen = appState.userData.account_type === 'seller' ? 'sellerDashboardScreen' :
-                                     (appState.userData.account_type === 'delivery' ? 'deliveryDashboardScreen' :
-                                     (appState.userData.account_type === 'founder' ? 'founderDashboardScreen' :
-                                     'homeScreen'));
-        } else {
-            appState.currentScreen = appState.location ? 'homeScreen' : 'locationScreen';
+        // ======== التحميل الآمن للبيانات (مع معالجة الأخطاء) ========
+        try {
+            // 1. تحميل الموقع المخزن
+            const savedLocation = localStorage.getItem('misarUserLocation');
+            if (savedLocation) {
+                try {
+                    appState.location = JSON.parse(savedLocation);
+                } catch (e) {}
+            }
+
+            // 2. جلسة المستخدم
+            if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session) {
+                    const user = session.user;
+                    appState.user = {
+                        id: user.id,
+                        email: user.email,
+                        user_metadata: user.user_metadata
+                    };
+                    await loadUserData();
+                    appState.currentScreen = appState.userData.account_type === 'seller' ? 'sellerDashboardScreen' :
+                                             (appState.userData.account_type === 'delivery' ? 'deliveryDashboardScreen' :
+                                             (appState.userData.account_type === 'founder' ? 'founderDashboardScreen' :
+                                             'homeScreen'));
+                } else {
+                    appState.currentScreen = appState.location ? 'homeScreen' : 'locationScreen';
+                }
+            } else {
+                appState.currentScreen = appState.location ? 'homeScreen' : 'locationScreen';
+            }
+
+            // 3. تحميل البيانات الأساسية (كلها داخل حماية ضد الأخطاء)
+            if (typeof loadProductsFromDB === 'function') await loadProductsFromDB();
+            if (typeof loadBanners === 'function') await loadBanners();
+            if (typeof loadFeaturedProducts === 'function') loadFeaturedProducts();
+            if (typeof loadMarketProducts === 'function') loadMarketProducts();
+            if (typeof loadServices === 'function') loadServices();
+            if (typeof loadCart === 'function') loadCart();
+            if (typeof updateCartBadgeFromDB === 'function') await updateCartBadgeFromDB();
+        } catch (err) {
+            console.error('❌ خطأ أثناء تحميل البيانات:', err);
         }
 
-        // 3. تحميل البيانات الأساسية
-        await loadProductsFromDB();
-        await loadBanners();   // تحميل الإعلانات
-        loadFeaturedProducts();
-        loadMarketProducts();
-        loadServices();
-        loadCart();
-        await updateCartBadgeFromDB();
-
-        // 4. إخفاء شاشة التحميل وعرض الشاشة المناسبة
-        setTimeout(() => {
-            document.getElementById('loadingScreen').style.display = 'none';
-            showScreen(appState.currentScreen);
-            if (!handleRoute()) {
-                // إذا لم يتم توجيهه، نعرض الشاشة الافتراضية
-            }
-            if (appState.location) {
-                updateWelcomeLocation();
-                updateProfileLocation();
-            }
-            toggleLoginMenu(!!appState.user);
-            const isSeller = appState.userData?.account_type === 'seller';
-            const isDelivery = appState.userData?.account_type === 'delivery';
-            const isFounder = appState.userData?.account_type === 'founder';
-            toggleSellerMenuItem(isSeller);
-            toggleDeliveryMenuItem(isDelivery);
-            toggleFounderMenuItem(isFounder);
-            addInputInteractions();
-
-            // إذا كان المستخدم مؤسساً، قم بتحميل لوحة التحكم
-            if (isFounder) {
-                setTimeout(() => {
-                    if (typeof refreshFounderDashboard === 'function') {
-                        refreshFounderDashboard();
-                    }
-                }, 500);
-            }
-        }, 1500);
+        // 4. إخفاء شاشة التحميل وعرض الشاشة المناسبة (دائماً بغض النظر عن الأخطاء)
+        setTimeout(finishLoading, 1500);
 
         // ======== إضافة مستمع حالة المصادقة ========
         supabaseClient.auth.onAuthStateChange(async (event, session) => {

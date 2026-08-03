@@ -192,38 +192,65 @@ body {
     touch-action: manipulation;
 }
 .back-btn.active { display: block; }
+.app-logo {
+    height: 40px;
+    width: auto;
+    max-height: 45px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 6px var(--gold));
+}
 .header-title {
-    font-size: 2.4rem;
+    font-size: 1.8rem;
     font-weight: 900;
     margin-right: 5px;
     color: transparent;
-    background: linear-gradient(90deg, #fff4b8 0%, #ffda5b 30%, #ffd700 55%, #e5b230 75%, #fbe57f 100%);
+    background: linear-gradient(145deg, #F4D03F 0%, #D4AF37 35%, #B8860B 60%, #D4AF37 85%, #F4D03F 100%);
     -webkit-background-clip: text;
     background-clip: text;
-    text-shadow:
-        0 0 10px rgba(255, 237, 143, 0.8),
-        0 0 20px rgba(255, 205, 0, 0.6),
-        0 0 30px rgba(255, 166, 0, 0.35);
-    letter-spacing: 2.5px;
+    text-shadow: none;
+    letter-spacing: 3px;
     white-space: nowrap;
-    font-family: 'Cinzel', serif;
+    font-family: 'Cinzel', 'Cairo', serif;
     text-transform: uppercase;
     position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    filter: drop-shadow(0 0 15px rgba(212, 175, 55, 0.7)) drop-shadow(0 0 30px rgba(212, 175, 55, 0.4)) drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+    animation: pharaonicShimmer 3s ease-in-out infinite;
 }
-.header-title::before,
-.header-title::after {
-    content: '𓂀';
+
+@keyframes pharaonicShimmer {
+    0%, 100% { 
+        filter: drop-shadow(0 0 15px rgba(212, 175, 55, 0.7)) drop-shadow(0 0 30px rgba(212, 175, 55, 0.4)) drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+        background: linear-gradient(145deg, #F4D03F 0%, #D4AF37 35%, #B8860B 60%, #D4AF37 85%, #F4D03F 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+    }
+    50% { 
+        filter: drop-shadow(0 0 25px rgba(212, 175, 55, 1)) drop-shadow(0 0 50px rgba(212, 175, 55, 0.6)) drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+        background: linear-gradient(145deg, #FFE066 0%, #F4D03F 30%, #D4AF37 50%, #F4D03F 70%, #FFE066 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+    }
+}
+
+.header-title::before {
+    content: "𓂀";
+    font-size: 1.2rem;
+    color: #D4AF37;
+    filter: drop-shadow(0 0 8px rgba(212, 175, 55, 0.8));
+    animation: none;
     display: inline-block;
-    margin: 0 8px;
-    opacity: 0.8;
-    text-shadow: 0 0 12px rgba(255, 223, 112, 0.8);
-    font-size: 1.2em;
 }
-.app-logo {
-    height: 52px;
-    max-height: 60px;
-    width: auto;
-    filter: drop-shadow(0 0 10px rgba(255, 223, 112, 0.85));
+
+.header-title::after {
+    content: "𓋴";
+    font-size: 1.2rem;
+    color: #D4AF37;
+    filter: drop-shadow(0 0 8px rgba(212, 175, 55, 0.8));
+    animation: none;
+    display: inline-block;
 }
 .header-actions {
     display: flex;
@@ -301,6 +328,33 @@ body {
     font-size: 0.9rem;
     padding: 5px;
     display: none;
+}
+.orders-search-bar {
+    padding: 12px 5%;
+    background: rgba(245, 243, 235, 0.95);
+    border-bottom: 2px solid var(--gold);
+}
+.orders-search-bar .search-container {
+    margin-bottom: 10px;
+}
+.orders-search-bar .filter-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-start;
+}
+.orders-search-bar .filter-btn {
+    padding: 8px 14px;
+    border-radius: 28px;
+    font-size: 0.82rem;
+}
+.orders-search-bar .filter-btn.active {
+    background: var(--blue-royal);
+    color: var(--sand);
+    border-color: transparent;
+}
+.orders-empty {
+    min-height: 220px;
 }
 
 /* ===== التنقل السفلي ===== */
@@ -3761,15 +3815,7 @@ body {
     .founder-tab i {
         font-size: 0.8rem;
     }
-}/async function loadBanners() {
-    try {
-        const banners = await getActiveBanners();
-        appState.banners = banners;
-        renderBanners(banners);
-        startBannerAutoSlide(); // إعادة التمرير التلقائي
-    } catch (err) {
-        console.error('فشل تحميل الإعلانات:', err);
-    }
+    console.error('فشل تحميل الإعلانات:', err);
 }/* ===== سلايدر الإعلانات – صورة كبيرة وواضحة ===== */
 .hero-slider {
     position: relative;

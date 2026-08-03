@@ -474,12 +474,22 @@ function renderFilteredOrders() {
         filtered = filtered.filter(o => o.status === status);
     }
     
-    // تصفية حسب نص البحث (رقم الطلب أو اسم المنتج)
+    // تصفية حسب نص البحث (رقم الطلب، اسم المنتج، الحالة، العنوان، السعر)
     if (query) {
         filtered = filtered.filter(o => {
             const orderId = (o.id || '').toLowerCase();
             const productName = (o.products?.name || '').toLowerCase();
-            return orderId.includes(query) || productName.includes(query);
+            const statusText = (getStatusText(o.status) || '').toLowerCase();
+            const orderPrice = ((o.total_price || 0).toString()).toLowerCase();
+            const deliveryFee = ((o.delivery_fee || 0).toString()).toLowerCase();
+            const shippingAddress = (o.shipping_address || '').toLowerCase();
+
+            return orderId.includes(query)
+                || productName.includes(query)
+                || statusText.includes(query)
+                || orderPrice.includes(query)
+                || deliveryFee.includes(query)
+                || shippingAddress.includes(query);
         });
     }
     
@@ -552,21 +562,10 @@ async function loadBuyerOrdersWithTimeline() {
     const orders = await loadBuyerOrders();
     const container = document.getElementById('buyerOrdersList');
     if (!container) return;
-    
+
     // تخزين الطلبات في الحالة العامة للتصفية
     appState.buyerOrders = orders;
-    
-    if (orders.length === 0) {
-        container.innerHTML = '<p style="text-align:center; padding:30px;">لا توجد طلبات</p>';
-        const emptyMsg = document.getElementById('ordersEmptyMessage');
-        if (emptyMsg) emptyMsg.style.display = 'none';
-        return;
-    }
-    
-    // عرض مع تطبيق التصفية الحالية
     renderFilteredOrders();
-    
-    // ملاحظة: تم نقل الكود الأصلي لإنشاء البطاقات إلى createBuyerOrderCard
 }
 
 // ===================== دوال الطلبات (البائع) =====================
