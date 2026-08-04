@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Misar
-         Systems | مسار سيستمز</title>
+    <title>Misar Systems | مسار سيستمز</title>
     <meta name="theme-color" content="#1a237e">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,7 +13,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" type="image/x-icon" href="https://i.ibb.co/XktM4crn/1767120438295.png">
     <link rel="stylesheet" href="style.css">
-    <meta name="google-site-verification" content="jpQbVa-GjiReP-X6Lf-sl5nripN0wcmPfttqgzKRMWk" />
 </head>
 <body>
 <div class="app-container">
@@ -24,7 +22,7 @@
     <!-- ========== شاشة اختيار الموقع ========== -->
     <div class="screen hidden" id="locationScreen">
         <div class="location-screen">
-            <img src="https://i.ibb.co/XktM4crn/1767120438295.png" alt="Misar خSystems" class="login-logo" loading="lazy">
+            <img src="https://i.ibb.co/XktM4crn/1767120438295.png" alt="Misar Systems" class="login-logo" loading="lazy">
             <div class="location-card">
                 <h1 class="location-title">📍 اختر موقعك</h1>
                 <p class="location-subtitle">لتقديم خدمات أفضل في منطقتك</p>
@@ -210,17 +208,15 @@
                 <div class="user-avatar" id="welcomeAvatar" onclick="showScreen('editProfileScreen')"><i class="fas fa-user"></i></div>
             </div>
         </div>
-
-        <!-- ===== سلايدر الإعلانات (حل محل "إجراءات سريعة") ===== -->
-        <div class="hero-slider" id="heroSlider">
-            <div class="slider-container" id="sliderContainer">
-                <!-- سيتم إنشاء الشرائح بواسطة JavaScript -->
+        <div class="quick-actions">
+            <div class="section-title"><span>إجراءات سريعة</span><a href="#" style="font-size:0.9rem; color:#1a237e;">عرض الكل</a></div>
+            <div class="actions-grid">
+                <a href="#" class="action-btn" onclick="showScreen('marketScreen')"><div class="action-icon"><i class="fas fa-shopping-bag"></i></div><span class="action-label">التسوق</span></a>
+                <a href="#" class="action-btn" onclick="showScreen('servicesScreen')"><div class="action-icon"><i class="fas fa-tools"></i></div><span class="action-label">الخدمات</span></a>
+                <a href="#" class="action-btn" onclick="showScreen('ordersScreen')"><div class="action-icon"><i class="fas fa-shopping-cart"></i></div><span class="action-label">طلباتي</span></a>
+                <a href="#" class="action-btn" onclick="showScreen('walletScreen')"><div class="action-icon"><i class="fas fa-wallet"></i></div><span class="action-label">المحفظة</span></a>
             </div>
-            <button class="slider-btn prev" onclick="slideBanner(-1)"><i class="fas fa-chevron-right"></i></button>
-            <button class="slider-btn next" onclick="slideBanner(1)"><i class="fas fa-chevron-left"></i></button>
-            <div class="slider-dots" id="sliderDots"></div>
         </div>
-
         <div class="categories-section">
             <div class="section-title">الأقسام الرئيسية</div>
             <div class="categories-grid">
@@ -578,7 +574,6 @@
             <button class="founder-tab" data-tab="reports" onclick="switchFounderTab('reports')"><i class="fas fa-flag"></i> البلاغات</button>
             <button class="founder-tab" data-tab="logs" onclick="switchFounderTab('logs')"><i class="fas fa-history"></i> سجل النشاط</button>
             <button class="founder-tab" data-tab="notifications" onclick="switchFounderTab('notifications')"><i class="fas fa-bell"></i> الإشعارات</button>
-            <button class="founder-tab" data-tab="banners" onclick="switchFounderTab('banners')"><i class="fas fa-image"></i> الإعلانات</button>
             <button class="founder-tab" data-tab="settings" onclick="switchFounderTab('settings')"><i class="fas fa-cog"></i> الإعدادات</button>
         </div>
 
@@ -659,18 +654,12 @@
             <!-- تبويب المنتجات -->
             <div id="tab-products" class="founder-tab-panel">
                 <div class="founder-toolbar">
-                    <div class="search-box">
-                        <i class="fas fa-search"></i>
-                        <input type="text" id="productSearchInput" placeholder="ابحث باسم المنتج، البائع، القسم..." oninput="filterProductsAdmin()">
-                    </div>
+                    <div class="search-box"><i class="fas fa-search"></i><input type="text" id="productSearchInput" placeholder="ابحث باسم المنتج، البائع، القسم..." oninput="filterProductsAdmin()"></div>
                     <button class="filter-btn" onclick="filterProductsAdminByStatus('all')">الكل</button>
                     <button class="filter-btn" onclick="filterProductsAdminByStatus('published')">منشور</button>
                     <button class="filter-btn" onclick="filterProductsAdminByStatus('hidden')">مخفي</button>
                     <button class="filter-btn" onclick="filterProductsAdminByStatus('review')">قيد المراجعة</button>
-                    <button class="filter-btn" onclick="filterProductsAdminByStatus('unavailable')">غير متاح</button>
-                    <button class="filter-btn" onclick="filterProductsAdminByStatus('deleted')">محذوف</button>
-<button class="filter-btn" onclick="deleteAllProductsAdmin()" style="background:#d32f2f;color:#fff;font-weight:bold;">🗑️ حذف الكل</button>
-                </div> <!-- end founder-toolbar -->
+                </div>
                 <div id="productsTableWrapper">
                     <table class="founder-table" id="productsTable">
                         <thead>
@@ -807,34 +796,6 @@
                 </div>
             </div>
 
-            <!-- تبويب الإعلانات -->
-            <div id="tab-banners" class="founder-tab-panel">
-                <div class="founder-toolbar">
-                    <div class="search-box">
-                        <i class="fas fa-search"></i>
-                        <input type="text" id="bannerSearchInput" placeholder="ابحث بعنوان الإعلان..." oninput="filterBanners()">
-                    </div>
-                    <button class="add-btn" onclick="showAddBannerForm()"><i class="fas fa-plus"></i> إضافة إعلان</button>
-                </div>
-                <div id="bannersTableWrapper">
-                    <table class="founder-table" id="bannersTable">
-                        <thead>
-                            <tr>
-                                <th>الصورة</th>
-                                <th>العنوان</th>
-                                <th>الوصف</th>
-                                <th>الرابط</th>
-                                <th>الترتيب</th>
-                                <th>الحالة</th>
-                                <th>الإجراءات</th>
-                            </tr>
-                        </thead>
-                        <tbody id="bannersTableBody"></tbody>
-                    </table>
-                </div>
-                <div class="pagination" id="bannersPagination"></div>
-            </div>
-
             <!-- تبويب الإعدادات -->
             <div id="tab-settings" class="founder-tab-panel">
                 <div class="founder-card">
@@ -924,43 +885,6 @@
             <div class="input-group"><label class="input-label">صور (حتى 5 صور)</label><input type="file" id="reviewImages" accept="image/*" multiple onchange="previewReviewImages(event)"><div class="review-media-preview" id="reviewImagesPreview"></div></div>
             <div class="input-group"><label class="input-label">فيديو (اختياري، MP4/WebM)</label><input type="file" id="reviewVideo" accept="video/*" onchange="previewReviewVideo(event)"><div class="review-media-preview" id="reviewVideoPreview"></div></div>
             <div style="display:flex; gap:10px; margin-top:20px;"><button class="login-btn" style="flex:1;" onclick="submitReview()"><i class="fas fa-paper-plane"></i> إرسال التقييم</button><button class="google-btn" style="flex:1;" onclick="closeReviewModal()">إلغاء</button></div>
-        </div>
-    </div>
-
-    <!-- مودال إدارة الإعلانات -->
-    <div id="bannerModal" class="modal" onclick="if(event.target===this) closeBannerModal()">
-        <div class="modal-content">
-            <h3 style="color:#1a237e; margin-bottom:15px;" id="bannerModalTitle">إضافة إعلان</h3>
-            <input type="hidden" id="editingBannerId">
-            <div class="input-group">
-                <label class="input-label">العنوان *</label>
-                <input type="text" id="bannerTitle" class="input-field" placeholder="عنوان الإعلان">
-            </div>
-            <div class="input-group">
-                <label class="input-label">الوصف</label>
-                <textarea id="bannerDescription" class="input-field" rows="2" placeholder="وصف الإعلان (اختياري)"></textarea>
-            </div>
-            <div class="input-group">
-                <label class="input-label">الرابط (اختياري)</label>
-                <input type="url" id="bannerLink" class="input-field" placeholder="https://example.com أو ?id=productId">
-            </div>
-            <div class="input-group">
-                <label class="input-label">ترتيب العرض</label>
-                <input type="number" id="bannerSortOrder" class="input-field" value="0">
-            </div>
-            <div class="input-group" style="display:flex; align-items:center; gap:10px;">
-                <label class="input-label" style="margin:0;">مفعل</label>
-                <input type="checkbox" id="bannerActive" checked style="width:20px; height:20px;">
-            </div>
-            <div class="input-group">
-                <label class="input-label">صورة الإعلان *</label>
-                <input type="file" id="bannerImageInput" accept="image/*" onchange="previewBannerImage(event)">
-                <div id="bannerImagePreview" style="margin-top:10px;"></div>
-            </div>
-            <div style="display:flex; gap:10px; margin-top:20px;">
-                <button class="login-btn" style="flex:1;" onclick="saveBanner()">حفظ</button>
-                <button class="google-btn" style="flex:1;" onclick="closeBannerModal()">إلغاء</button>
-            </div>
         </div>
     </div>
 
@@ -1112,126 +1036,80 @@
 
 <!-- ========== ملفات الجافا سكريبت ========== -->
 <script src="js/supabase.js"></script>
-<script src="js/admin-dashboard.js"></script>
-<script src="js/admin-reports.js"></script>
-<script src="js/admin-couriers.js"></script>
-<script src="js/admin-users.js"></script>
-<script src="js/admin-products.js"></script>
-<script src="js/admin-properties.js"></script>
-<script src="js/admin-services.js"></script>
-<script src="js/admin-orders.js"></script>
-<script src="js/admin-logs.js"></script>
-<script src="js/admin-settings.js"></script>
-<script src="js/admin-banners.js"></script>   <!-- يجب أن يأتي بعد supabase.js -->
 <script src="js/products.js"></script>
 <script src="js/product.js"></script>
 <script src="js/cart.js"></script>
+
 <script>
-   // ======== التهيئة العامة ========
-document.addEventListener('DOMContentLoaded', async function() {
+    // ======== التهيئة العامة ========
+    document.addEventListener('DOMContentLoaded', async function() {
         console.log('🚀 تطبيق Misar Systems بدأ التحميل...');
 
-        // ======== دالة إنهاء التحميل (تُستدعى دائماً) ========
-        // تمنع بقاء شاشة التحميل عالقة حتى لو فشل تحميل بعض البيانات
-        function finishLoading() {
+        // 1. تحميل الموقع المخزن
+        const savedLocation = localStorage.getItem('misarUserLocation');
+        if (savedLocation) {
             try {
-                const loadingScreen = document.getElementById('loadingScreen');
-                if (loadingScreen) loadingScreen.style.display = 'none';
-
-                // تحديد الشاشة الابتدائية إذا لم يكن محدداً
-                if (!appState.currentScreen) {
-                    appState.currentScreen = appState.location ? 'homeScreen' : 'locationScreen';
-                }
-
-                showScreen(appState.currentScreen);
-
-                // معالجة رابط التوجيه إن وجد (?id= أو ?store= أو ?founder=)
-                let handled = false;
-                try {
-                    if (typeof handleRoute === 'function') handled = handleRoute();
-                } catch (rErr) {
-                    console.error('❌ خطأ في handleRoute:', rErr);
-                }
-
-                if (appState.location) {
-                    if (typeof updateWelcomeLocation === 'function') updateWelcomeLocation();
-                    if (typeof updateProfileLocation === 'function') updateProfileLocation();
-                }
-
-                if (typeof toggleLoginMenu === 'function') toggleLoginMenu(!!appState.user);
-
-                const isSeller = appState.userData?.account_type === 'seller';
-                const isDelivery = appState.userData?.account_type === 'delivery';
-                const isFounder = appState.userData?.account_type === 'founder';
-
-                if (typeof toggleSellerMenuItem === 'function') toggleSellerMenuItem(isSeller);
-                if (typeof toggleDeliveryMenuItem === 'function') toggleDeliveryMenuItem(isDelivery);
-                if (typeof toggleFounderMenuItem === 'function') toggleFounderMenuItem(isFounder);
-                if (typeof addInputInteractions === 'function') addInputInteractions();
-
-                // إذا كان المستخدم مؤسساً، قم بتحميل لوحة التحكم
-                if (isFounder) {
-                    setTimeout(() => {
-                        if (typeof refreshFounderDashboard === 'function') refreshFounderDashboard();
-                    }, 500);
-                }
-            } catch (e) {
-                console.error('❌ خطأ أثناء إنهاء التحميل:', e);
-                const loadingScreen = document.getElementById('loadingScreen');
-                if (loadingScreen) loadingScreen.style.display = 'none';
-            }
+                appState.location = JSON.parse(savedLocation);
+            } catch(e) {}
         }
 
-        // ======== التحميل الآمن للبيانات (مع معالجة الأخطاء) ========
-        try {
-            // 1. تحميل الموقع المخزن
-            const savedLocation = localStorage.getItem('misarUserLocation');
-            if (savedLocation) {
-                try {
-                    appState.location = JSON.parse(savedLocation);
-                } catch (e) {}
-            }
-
-            // 2. جلسة المستخدم
-            if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
-                const { data: { session } } = await supabaseClient.auth.getSession();
-                if (session) {
-                    const user = session.user;
-                    appState.user = {
-                        id: user.id,
-                        email: user.email,
-                        user_metadata: user.user_metadata
-                    };
-                    await loadUserData();
-                    appState.currentScreen = appState.userData.account_type === 'seller' ? 'sellerDashboardScreen' :
-                                             (appState.userData.account_type === 'delivery' ? 'deliveryDashboardScreen' :
-                                             (appState.userData.account_type === 'founder' ? 'founderDashboardScreen' :
-                                             'homeScreen'));
-                } else {
-                    appState.currentScreen = appState.location ? 'homeScreen' : 'locationScreen';
-                }
-            } else {
-                appState.currentScreen = appState.location ? 'homeScreen' : 'locationScreen';
-            }
-
-            // 3. تحميل البيانات الأساسية (كلها داخل حماية ضد الأخطاء)
-            if (typeof loadProductsFromDB === 'function') await loadProductsFromDB();
-            if (typeof loadBanners === 'function') await loadBanners();
-            if (typeof loadFeaturedProducts === 'function') loadFeaturedProducts();
-            if (typeof loadMarketProducts === 'function') loadMarketProducts();
-            if (typeof loadServices === 'function') loadServices();
-            if (typeof loadCart === 'function') loadCart();
-            if (typeof updateCartBadgeFromDB === 'function') await updateCartBadgeFromDB();
-        } catch (err) {
-            console.error('❌ خطأ أثناء تحميل البيانات:', err);
+        // 2. جلسة المستخدم
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) {
+            const user = session.user;
+            appState.user = {
+                id: user.id,
+                email: user.email,
+                user_metadata: user.user_metadata
+            };
+            await loadUserData();
+            appState.currentScreen = appState.userData.account_type === 'seller' ? 'sellerDashboardScreen' :
+                                     (appState.userData.account_type === 'delivery' ? 'deliveryDashboardScreen' :
+                                     (appState.userData.account_type === 'founder' ? 'founderDashboardScreen' :
+                                     'homeScreen'));
+        } else {
+            appState.currentScreen = appState.location ? 'homeScreen' : 'locationScreen';
         }
 
-        // 4. إخفاء شاشة التحميل وعرض الشاشة المناسبة (دائماً بغض النظر عن الأخطاء)
-        setTimeout(finishLoading, 3000);
+        // 3. تحميل البيانات الأساسية
+        await loadProductsFromDB();
+        loadFeaturedProducts();
+        loadMarketProducts();
+        loadServices();
+        loadCart();
+        await updateCartBadgeFromDB();
 
-        // ======== إضافة مستمع حالة المصادقة ========
+        // 4. إخفاء شاشة التحميل وعرض الشاشة المناسبة
+        setTimeout(() => {
+            document.getElementById('loadingScreen').style.display = 'none';
+            showScreen(appState.currentScreen);
+            if (appState.location) {
+                updateWelcomeLocation();
+                updateProfileLocation();
+            }
+            toggleLoginMenu(!!appState.user);
+            const isSeller = appState.userData?.account_type === 'seller';
+            const isDelivery = appState.userData?.account_type === 'delivery';
+            const isFounder = appState.userData?.account_type === 'founder';
+            toggleSellerMenuItem(isSeller);
+            toggleDeliveryMenuItem(isDelivery);
+            toggleFounderMenuItem(isFounder);
+            addInputInteractions();
+
+            // إذا كان المستخدم مؤسساً، قم بتحميل لوحة التحكم
+            if (isFounder) {
+                setTimeout(() => {
+                    if (typeof refreshFounderDashboard === 'function') {
+                        refreshFounderDashboard();
+                    }
+                }, 500);
+            }
+        }, 1500);
+
+        // ======== إضافة مستمع حالة المصادقة (التعديل الرئيسي) ========
         supabaseClient.auth.onAuthStateChange(async (event, session) => {
             if (event === 'SIGNED_IN' && session) {
+                // تسجيل الدخول ناجح
                 appState.user = {
                     id: session.user.id,
                     email: session.user.email,
@@ -1251,12 +1129,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                 else if (accountType === 'founder') targetScreen = 'founderDashboardScreen';
                 showScreen(targetScreen);
                 showToast('تم تسجيل الدخول بنجاح', 'success');
+
+                // تحديث معلومات المستخدم في الواجهة
                 updateUserInfo();
                 updateWelcomeLocation();
                 updateProfileLocation();
             }
 
             if (event === 'SIGNED_OUT') {
+                // تسجيل الخروج
                 appState.user = null;
                 appState.userData = {};
                 toggleLoginMenu(false);
@@ -1272,24 +1153,28 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
 
         // ======== ربط الأحداث ========
+        // زر تسجيل الدخول
         document.getElementById('loginBtn')?.addEventListener('click', function(e) {
             e.preventDefault();
             if (typeof signInWithEmail === 'function') signInWithEmail();
             else showToast('حدث خطأ في النظام', 'error');
         });
 
+        // زر التسجيل
         document.getElementById('registerBtn')?.addEventListener('click', function(e) {
             e.preventDefault();
             if (typeof signUpWithEmail === 'function') signUpWithEmail();
             else showToast('حدث خطأ في النظام', 'error');
         });
 
+        // زر Google
         document.getElementById('googleLoginBtn')?.addEventListener('click', function(e) {
             e.preventDefault();
             if (typeof signInWithGoogle === 'function') signInWithGoogle();
             else showToast('حدث خطأ في النظام', 'error');
         });
 
+        // روابط التبديل
         document.getElementById('showRegisterLink')?.addEventListener('click', function(e) {
             e.preventDefault();
             showScreen('registerScreen');
@@ -1299,8 +1184,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             showScreen('loginScreen');
         });
 
+        // حفظ الموقع
         document.getElementById('saveLocationBtn')?.addEventListener('click', saveLocation);
 
+        // تحديث القرى عند تغيير المركز
         const centerSelect = document.getElementById('centerSelect');
         const villageSelect = document.getElementById('villageSelect');
         if (centerSelect && villageSelect) {
@@ -1323,6 +1210,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         }
 
+        // إعداد نجوم التقييم
         document.querySelectorAll('.star').forEach(star => {
             star.addEventListener('click', function() {
                 const value = parseInt(this.dataset.value);
@@ -1346,6 +1234,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             });
         });
 
+        // مستمع تغيير نوع المستلم في الإشعارات
         document.getElementById('notificationRecipients')?.addEventListener('change', function() {
             const specificEmail = document.getElementById('specificUserEmail');
             if (this.value === 'specific') {
@@ -1391,7 +1280,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             case 'orders': if (typeof loadOrdersTableAdmin === 'function') loadOrdersTableAdmin(); break;
             case 'reports': if (typeof loadReportsTable === 'function') loadReportsTable(); break;
             case 'logs': if (typeof loadLogsTable === 'function') loadLogsTable(); break;
-            case 'banners': if (typeof loadBannersTable === 'function') loadBannersTable(); break;
             case 'settings': if (typeof loadSettingsForm === 'function') loadSettingsForm(); break;
         }
     };

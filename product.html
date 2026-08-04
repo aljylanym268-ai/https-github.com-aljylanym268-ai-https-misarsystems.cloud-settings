@@ -42,39 +42,19 @@
 <script>
     document.addEventListener('DOMContentLoaded', async () => {
         const params = new URLSearchParams(window.location.search);
-        let productId = params.get('id');
-
-        // إذا لم يوجد id في الرابط، حاول استخدام hash أو أي طريقة أخرى (اختياري)
-        if (!productId) {
-            // محاولة استخراج id من المسار (مثلاً /product/123)
-            const path = window.location.pathname;
-            const match = path.match(/\/product\/([^\/]+)/);
-            if (match) productId = match[1];
-        }
-
+        const productId = params.get('id');
         if (!productId) {
             document.getElementById('productDetailContent').innerHTML = '<p style="text-align:center; padding:50px;">لم يتم تحديد منتج</p>';
             return;
         }
-
-        // تحميل المنتجات إذا لم تكن محملة
         if (appState.products.length === 0) {
             await loadProductsFromDB();
         }
-
         const product = appState.products.find(p => p.id === productId);
         if (product) {
             openProductDetail(product);
         } else {
-            // محاولة جلب المنتج مباشرة من قاعدة البيانات
-            const { data, error } = await supabaseClient.from('products').select('*').eq('id', productId).single();
-            if (data && !error) {
-                // إضافته إلى appState.products مؤقتاً
-                appState.products.push(data);
-                openProductDetail(data);
-            } else {
-                document.getElementById('productDetailContent').innerHTML = '<p style="text-align:center; padding:50px;">المنتج غير موجود</p>';
-            }
+            document.getElementById('productDetailContent').innerHTML = '<p style="text-align:center; padding:50px;">المنتج غير موجود</p>';
         }
     });
 </script>

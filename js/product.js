@@ -3,23 +3,6 @@
 // ========== فتح تفاصيل المنتج (معرض صورة واحد مع سحب + تقييمات) ==========
 async function openProductDetail(product) {
     if (!product) return;
-    
-    // التحقق من حالة المنتج - منع فتح المنتج المحذوف
-    if (product.status === 'deleted') {
-        showToast('⛔ هذا المنتج غير متاح حالياً', 'error');
-        return;
-    }
-
-    // تحديث الرابط مع معرف المنتج
-    const newUrl = `${window.location.pathname}?id=${product.id}`;
-    // إذا كنا نتصفح منتجاً آخر من داخل شاشة المنتج، استبدل الرابط بدل تكديسه في سجل المتصفح
-    // حتى لا يعود المنتج السابق تلقائياً عند الضغط على زر الرجوع
-    if (appState.currentScreen === 'productDetailScreen') {
-        window.history.replaceState({ productId: product.id }, '', newUrl);
-    } else {
-        window.history.pushState({ productId: product.id }, '', newUrl);
-    }
-
     appState.currentProduct = product;
 
     // جلب التقييمات والإحصائيات
@@ -978,6 +961,7 @@ function exploreMore(category) {
     }
     showToast(`عرض منتجات من فئة: ${category}`, 'info');
 }
+
 // ========== تصدير الدوال العامة ==========
 window.openProductDetail = openProductDetail;
 window.changeQuantity = changeQuantity;

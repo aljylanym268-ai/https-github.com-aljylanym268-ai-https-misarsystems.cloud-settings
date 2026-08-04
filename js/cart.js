@@ -370,28 +370,6 @@ async function cancelOrder(orderId) {
     catch (err) { showToast(err.message, 'error'); } finally { showLoading(false); }
 }
 
-// ========== حذف طلب من قائمة الطلبات ==========
-function deleteBuyerOrder(orderId) {
-    if (!confirm('هل أنت متأكد من حذف هذا الطلب من القائمة؟')) return;
-    
-    // إزالة الطلب من المصفوفة المحلية
-    if (appState.buyerOrders) {
-        appState.buyerOrders = appState.buyerOrders.filter(o => o.id !== orderId);
-    }
-    
-    // إعادة عرض الطلبات المفلترة
-    renderFilteredOrders();
-    showToast('تم حذف الطلب من القائمة', 'success');
-    
-    // إذا لم يعد هناك طلبات، عرض رسالة "لا توجد طلبات"
-    if (!appState.buyerOrders || appState.buyerOrders.length === 0) {
-        const container = document.getElementById('buyerOrdersList');
-        const emptyMsg = document.getElementById('ordersEmptyMessage');
-        if (container) container.innerHTML = '';
-        if (emptyMsg) emptyMsg.style.display = 'block';
-    }
-}
-
 function getStatusText(status) {
     const map = {
         pending: 'قيد الانتظار',
@@ -474,22 +452,12 @@ function renderFilteredOrders() {
         filtered = filtered.filter(o => o.status === status);
     }
     
-    // تصفية حسب نص البحث (رقم الطلب، اسم المنتج، الحالة، العنوان، السعر)
+    // تصفية حسب نص البحث (رقم الطلب أو اسم المنتج)
     if (query) {
         filtered = filtered.filter(o => {
             const orderId = (o.id || '').toLowerCase();
             const productName = (o.products?.name || '').toLowerCase();
-            const statusText = (getStatusText(o.status) || '').toLowerCase();
-            const orderPrice = ((o.total_price || 0).toString()).toLowerCase();
-            const deliveryFee = ((o.delivery_fee || 0).toString()).toLowerCase();
-            const shippingAddress = (o.shipping_address || '').toLowerCase();
-
-            return orderId.includes(query)
-                || productName.includes(query)
-                || statusText.includes(query)
-                || orderPrice.includes(query)
-                || deliveryFee.includes(query)
-                || shippingAddress.includes(query);
+            return orderId.includes(query) || productName.includes(query);
         });
     }
     
@@ -535,25 +503,11 @@ function createBuyerOrderCard(order) {
         </div>`;
     }
     
-    // عرض أزرار الإجراءات حسب حالة الطلب
-    let actionsHtml = '';
-    if (order.status === 'pending') {
-        actionsHtml = `<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-            <button class="add-to-cart" onclick="cancelOrder('${order.id}')"><i class="fas fa-ban"></i> إلغاء الطلب</button>
-            <button class="remove-btn" style="display:inline-flex;align-items:center;gap:5px;width:auto;" onclick="deleteBuyerOrder('${order.id}')"><i class="fas fa-trash"></i> حذف</button>
-        </div>`;
-    } else if (order.status === 'cancelled' || order.status === 'delivered') {
-        actionsHtml = `<div style="margin-top:10px;">
-            <button class="remove-btn" style="display:inline-flex;align-items:center;gap:5px;width:auto;" onclick="deleteBuyerOrder('${order.id}')"><i class="fas fa-trash"></i> حذف</button>
-        </div>`;
-    }
-    
     card.innerHTML = `<div class="order-header"><span class="order-id">#${order.id.slice(0,8)}</span><span class="order-status ${order.status}">${getStatusText(order.status)}</span></div>
         <div>${escapeHTML(product.name)} - ${order.quantity} × ${((order.total_price - (order.delivery_fee || 0)) / order.quantity).toFixed(0)} ج.م</div>
         <div>رسوم التوصيل: ${order.delivery_fee || 0} ج.م</div>
         <div class="order-timeline" style="margin-top:15px;">${timeline}</div>
-        ${otpDisplay}${deliveryHtml}
-        ${actionsHtml}`;
+        ${otpDisplay}${deliveryHtml}${order.status === 'pending' ? `<button class="add-to-cart" onclick="cancelOrder('${order.id}')">إلغاء الطلب</button>` : ''}`;
     
     return card;
 }
@@ -562,10 +516,21 @@ async function loadBuyerOrdersWithTimeline() {
     const orders = await loadBuyerOrders();
     const container = document.getElementById('buyerOrdersList');
     if (!container) return;
-
+    
     // تخزين الطلبات في الحالة العامة للتصفية
     appState.buyerOrders = orders;
+    
+    if (orders.length === 0) {
+        container.innerHTML = '<p style="text-align:center; padding:30px;">لا توجد طلبات</p>';
+        const emptyMsg = document.getElementById('ordersEmptyMessage');
+        if (emptyMsg) emptyMsg.style.display = 'none';
+        return;
+    }
+    
+    // عرض مع تطبيق التصفية الحالية
     renderFilteredOrders();
+    
+    // ملاحظة: تم نقل الكود الأصلي لإنشاء البطاقات إلى createBuyerOrderCard
 }
 
 // ===================== دوال الطلبات (البائع) =====================
@@ -1115,4 +1080,3 @@ window.filterBuyerOrders = filterBuyerOrders;
 window.setOrdersFilter = setOrdersFilter;
 window.renderFilteredOrders = renderFilteredOrders;
 window.createBuyerOrderCard = createBuyerOrderCard;
-window.deleteBuyerOrder = deleteBuyerOrder;
