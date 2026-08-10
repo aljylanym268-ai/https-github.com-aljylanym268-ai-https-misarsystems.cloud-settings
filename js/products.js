@@ -1,4 +1,4 @@
-// ========== تحميل المنتجات من قاعدة البيانات ==========
+// ========= تحميل المنتجات من قاعدة البيانات ==========
 async function loadProductsFromDB() {
     const { data, error } = await supabaseClient.from('products').select('*').order('created_at', { ascending: false });
     if (error) { console.error(error); return []; }
@@ -68,13 +68,29 @@ function clearSearch() {
     filterMarketProducts('');
 }
 
+// ========== عرض تقييم المنتج (النجوم + العدد) ==========
+function getProductRatingHTML(product) {
+    const rating = parseFloat(product.avg_rating) || 0;
+    const count = parseInt(product.review_count) || (product.reviews_count) || 0;
+    if (rating <= 0) {
+        return `<div class="product-rating"><span class="stars">☆☆☆☆☆</span><span class="rating-count">(0)</span></div>`;
+    }
+    const full = Math.floor(rating);
+    const hasHalf = rating % 1 >= 0.5;
+    let stars = '★'.repeat(full);
+    if (hasHalf) stars += '★';
+    stars += '☆'.repeat(5 - Math.ceil(rating));
+    while (stars.length < 5) stars += '☆';
+    return `<div class="product-rating"><span class="stars">${stars}</span><span class="rating-value">${rating.toFixed(1)}</span><span class="rating-count">(${count})</span></div>`;
+}
+
 // ========== إنشاء بطاقة منتج ==========
 function createProductCard(product) {
     const card = document.createElement('div');
     card.className = 'product-card';
     const imageUrl = product.images && product.images.length ? product.images[0] : (product.image_url || '');
     const imageHtml = imageUrl ? `<img src="${imageUrl}" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<div>📦</div>';">` : '<div>📦</div>';
-    card.innerHTML = `<div class="product-image">${imageHtml}<div class="product-tag">${product.category || 'عام'}</div></div><div class="product-info"><div class="product-title">${escapeHTML(product.name)}</div><div class="product-price">${product.price} ج.م</div><div class="product-rating">★★★★★</div><button class="add-to-cart" onclick="event.stopPropagation(); addToCart('${product.id}')"><i class="fas fa-cart-plus"></i> إضافة للسلة</button></div>`;
+    card.innerHTML = `<div class="product-image">${imageHtml}<div class="product-tag">${product.category || 'عام'}</div></div><div class="product-info"><div class="product-title">${escapeHTML(product.name)}</div><div class="product-price">${product.price} ج.م</div>${getProductRatingHTML(product)}<button class="add-to-cart" onclick="event.stopPropagation(); addToCart('${product.id}')"><i class="fas fa-cart-plus"></i> إضافة للسلة</button></div>`;
     card.addEventListener('click', () => openProductDetail(product));
     return card;
 }
@@ -270,7 +286,7 @@ async function addSellerStoreTools() { const toolsDiv = document.getElementById(
 async function updateStoreTools() { if (!appState.user || appState.userData.account_type !== 'seller') return; const linkDisplay = document.getElementById('storeLinkDisplay'); const qrContainer = document.getElementById('storeQRCode'); if (!linkDisplay || !qrContainer) return; const storeUrl = getStoreUrl(); linkDisplay.textContent = storeUrl; generateStoreQR(storeUrl, 'storeQRCode'); }
 
 // ========== عرض صفحة متجر البائع ==========
-async function showStorePage(identifier) { showLoading(true); let sellerData = null; if (identifier.startsWith('user_') || (identifier.length > 20 && identifier.includes('-'))) { const { data, error } = await supabaseClient.from('user_data').select('*').eq('id', identifier).single(); if (!error && data) sellerData = data; } else { const { data, error } = await supabaseClient.from('user_data').select('*').eq('username', identifier).single(); if (!error && data) sellerData = data; } if (!sellerData) { showLoading(false); showToast('البائع غير موجود', 'error'); showScreen('homeScreen'); return; } const { data: products } = await supabaseClient.from('products').select('*').eq('user_id', sellerData.id).order('created_at', { ascending: false }); const container = document.getElementById('storeContent'); const avatarUrl = sellerData.image_url || ''; const avatarHtml = avatarUrl ? `<img src="${avatarUrl}" alt="صورة البائع">` : '<i class="fas fa-user" style="font-size:3rem; color:#aaa;"></i>'; const bioHtml = sellerData.bio ? `<div class="store-bio">${escapeHTML(sellerData.bio)}</div>` : ''; let productsHtml = '<div class="products-grid" id="storeProductsGrid">'; if (products && products.length) { products.forEach(p => { const img = p.images && p.images[0] ? p.images[0] : (p.image_url || ''); productsHtml += `<div class="product-card" onclick="openProductDetailFromStore('${p.id}')"><div class="product-image"><img src="${img}" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML='<div>📦</div>';"> <div class="product-tag">${p.category || 'عام'}</div></div><div class="product-info"><div class="product-title">${escapeHTML(p.name)}</div><div class="product-price">${p.price} ج.م</div><button class="add-to-cart" onclick="event.stopPropagation(); addToCart('${p.id}')"><i class="fas fa-cart-plus"></i> إضافة للسلة</button></div></div>`; }); } else { productsHtml += '<p style="grid-column:span2; text-align:center; padding:30px;">لا توجد منتجات متاحة حالياً</p>'; } productsHtml += '</div>'; container.innerHTML = `<div class="store-header"><div class="store-avatar">${avatarHtml}</div><div class="store-name">${escapeHTML(sellerData.name || sellerData.email?.split('@')[0] || 'بائع')}</div>${bioHtml}</div><div class="store-products"><h2 style="color:#1a237e; margin-bottom:15px;">جميع المنتجات</h2>${productsHtml}</div>`; showLoading(false); showScreen('storeScreen'); }
+async function showStorePage(identifier) { showLoading(true); let sellerData = null; if (identifier.startsWith('user_') || (identifier.length > 20 && identifier.includes('-'))) { const { data, error } = await supabaseClient.from('user_data').select('*').eq('id', identifier).single(); if (!error && data) sellerData = data; } else { const { data, error } = await supabaseClient.from('user_data').select('*').eq('username', identifier).single(); if (!error && data) sellerData = data; } if (!sellerData) { showLoading(false); showToast('البائع غير موجود', 'error'); showScreen('homeScreen'); return; } const { data: products } = await supabaseClient.from('products').select('*').eq('user_id', sellerData.id).order('created_at', { ascending: false }); const container = document.getElementById('storeContent'); const avatarUrl = sellerData.image_url || ''; const avatarHtml = avatarUrl ? `<img src="${avatarUrl}" alt="صورة البائع">` : '<i class="fas fa-user" style="font-size:3rem; color:#aaa;"></i>'; const sellerName = sellerData.name || sellerData.email?.split('@')[0] || 'بائع'; const bioHtml = sellerData.bio ? `<div class="store-bio">${escapeHTML(sellerData.bio)}</div>` : ''; let productsHtml = '<div class="products-grid" id="storeProductsGrid">'; if (products && products.length) { products.forEach(p => { const img = p.images && p.images[0] ? p.images[0] : (p.image_url || ''); productsHtml += `<div class="product-card" onclick="openProductDetailFromStore('${p.id}')"><div class="product-image"><img src="${img}" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML='<div>📦</div>';"> <div class="product-tag">${p.category || 'عام'}</div></div><div class="product-info"><div class="product-title">${escapeHTML(p.name)}</div><div class="product-price">${p.price} ج.م</div>${getProductRatingHTML(p)}<button class="add-to-cart" onclick="event.stopPropagation(); addToCart('${p.id}')"><i class="fas fa-cart-plus"></i> إضافة للسلة</button></div></div>`; }); } else { productsHtml += '<p style="grid-column:span2; text-align:center; padding:30px;">لا توجد منتجات متاحة حالياً</p>'; } productsHtml += '</div>'; container.innerHTML = `<div class="seller-store-header"><div class="seller-store-avatar">${avatarHtml}</div><div class="seller-store-name">${escapeHTML(sellerName)}</div><div class="seller-store-subtitle"><i class="fas fa-store"></i> متجر مسجل على Misar Systems</div>${bioHtml}</div><div class="store-products"><div class="section-title"><i class="fas fa-box"></i> جميع المنتجات</div>${productsHtml}</div>`; showLoading(false); showScreen('storeScreen'); }
 function openProductDetailFromStore(productId) { const product = appState.products.find(p => p.id === productId); if (product) openProductDetail(product); else showToast('المنتج غير موجود', 'error'); }
 
 // ===================== إضافة دالة إظهار/إخفاء كلمة المرور =====================

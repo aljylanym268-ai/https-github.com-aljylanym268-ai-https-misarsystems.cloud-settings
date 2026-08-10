@@ -1,9 +1,14 @@
-# TODO: إصلاح مسارات ملفات الجافا سكريبت
+# TODO - إعدادات الإشعارات (تفعيل/تعطيل إشعارات النظام)
 
-## المهمة
-إصلاح مسارات ملفات الجافا سكريبت في `index.html` لتتوافق مع المسارات الفعلية للملفات.
+## الخطوات المخطط لها
 
-## الحالة النهائية
-- [x] تم إرجاع جميع التغييرات إلى الحالة الأصلية بناءً على طلب المستخدم.
-- [x] ملف `index.html` الآن متطابق مع النسخة الأصلية.
-- [x] جميع مسارات الملفات عادت كما كانت (js/admin-*.js).
+- [x] إضافة حالة `notificationsEnabled` إلى `appState` في `js/supabase.js`
+- [x] كتابة دالة `showNotificationSettingsModal` في `js/supabase.js`
+- [x] كتابة دالة `toggleSystemNotifications` في `js/supabase.js`
+- [x] كتابة دالة `sendTestNotification` في `js/supabase.js`
+- [x] تعديل `showSystemNotification` لاحترام إعداد `notificationsEnabled`
+- [x] تصدير الدوال الجديدة إلى `window`
+- [x] إضافة عنصر قائمة "الإشعارات" في `index.html` داخل `profileScreen`
+- [x] إضافة مودال `notificationSettingsModal` في `index.html`
+- [x] ربط أحداث المودال في `index.html`
+- [ ] اختبار تفعيل/تعطيل الإشعارات وإرسال إشعار تجريبي
