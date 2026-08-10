@@ -35,8 +35,9 @@ const appState = {
     founderShares: { whatsapp:0, facebook:0, twitter:0, copy:0 },
     previousScreen: 'homeScreen',
     currentScreen: 'homeScreen',
-    ordersSubscription: null,
-    notificationsSubscription: null
+ordersSubscription: null,
+    notificationsSubscription: null,
+    notificationsEnabled: localStorage.getItem('misarNotificationsEnabled') !== 'false'
 };
 
 // ========== دوال مساعدة ==========
@@ -295,35 +296,52 @@ async function getReviewStats(productId) {
 
 async function markReviewHelpful(reviewId, userId) {
     if (!userId) throw new Error('يجب تسجيل الدخول');
-    const { data: existing, error: checkError } = await supabaseClient
-        .from('review_helpful')
-        .select('id')
-        .eq('review_id', reviewId)
-        .eq('user_id', userId)
-        .maybeSingle();
-    if (checkError) throw checkError;
-    if (existing) throw new Error('لقد قمت بتحديد هذا التقييم كمفيد سابقاً');
 
-    const { error: insertError } = await supabaseClient
-        .from('review_helpful')
-        .insert({ review_id: reviewId, user_id: userId, created_at: new Date() });
-    if (insertError) throw insertError;
+    // تسجيل الإعجاب في جدول review_helpful (إن وُجد الجدول وسمح RLS)
+    // لا نمنع زيادة العدد إذا كان هذا الجدول غير متاح، بل نكمل برفع العدد فقط.
+    try {
+        const { data: existing, error: checkError } = await supabaseClient
+            .from('review_helpful')
+            .select('id')
+            .eq('review_id', reviewId)
+            .eq('user_id', userId)
+            .maybeSingle();
+        if (checkError) throw checkError;
+        if (existing) throw new Error('لقد قمت بتحديد هذا التقييم كمفيد سابقاً');
 
-    const { error: updateError } = await supabaseClient
-        .from('reviews')
-        .update({ helpful_count: supabaseClient.rpc('increment_helpful_count', { review_id: reviewId }) })
-        .eq('id', reviewId);
-    if (updateError) {
-        const { data: review } = await supabaseClient
-            .from('reviews')
-            .select('helpful_count')
-            .eq('id', reviewId)
-            .single();
-        if (review) {
-            await supabaseClient
+        const { error: insertError } = await supabaseClient
+            .from('review_helpful')
+            .insert({ review_id: reviewId, user_id: userId, created_at: new Date() });
+        if (insertError) throw insertError;
+    } catch (e) {
+        // إذا كان الخطأ هو "قيّمت سابقاً" نعيده للمستخدم، وإلا نتجاهله ونكمل بزيادة العدد
+        if (e && e.message === 'لقد قمت بتحديد هذا التقييم كمفيد سابقاً') throw e;
+        console.warn('لم يتم تسجيل الإعجاب في review_helpful (سيتم زيادة العدد فقط):', e);
+    }
+
+    // زيادة عدد الإعجابات "مفيد" في جدول reviews
+    try {
+        // أولاً: محاولة استخدام دالة RPC (زيادة ذرّية)
+        const { error: rpcError } = await supabaseClient
+            .rpc('increment_helpful_count', { review_id: reviewId });
+        if (rpcError) throw rpcError;
+    } catch (rpcErr) {
+        // إذا لم توجد دالة RPC، نقرأ العدد الحالي ثم نزيده يدوياً
+        try {
+            const { data: review, error: fetchError } = await supabaseClient
                 .from('reviews')
-                .update({ helpful_count: (review.helpful_count || 0) + 1 })
-                .eq('id', reviewId);
+                .select('helpful_count')
+                .eq('id', reviewId)
+                .single();
+            if (!fetchError && review) {
+                const { error: updateError } = await supabaseClient
+                    .from('reviews')
+                    .update({ helpful_count: (review.helpful_count || 0) + 1 })
+                    .eq('id', reviewId);
+                if (updateError) throw updateError;
+            }
+        } catch (e2) {
+            console.warn('فشل زيادة عدد "مفيد" في قاعدة البيانات:', e2);
         }
     }
 }
@@ -342,14 +360,96 @@ async function getHelpfulCount(reviewId) {
 // ============================================================
 
 async function signInWithGoogle() {
+    // تحديد نوع الحساب من الشاشة النشطة (تسجيل الدخول أو التسجيل)
     const loginAccountType = document.getElementById('loginAccountType');
-    if (!loginAccountType) { showToast('خطأ في النموذج', 'error'); return; }
-    sessionStorage.setItem('pendingAccountType', loginAccountType.value);
-    const { error } = await supabaseClient.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: window.location.origin + window.location.pathname }
-    });
-    if (error) { showToast(error.message, 'error'); showBearReaction(false); }
+    const registerAccountType = document.getElementById('registerAccountType');
+    const activeScreen = document.querySelector('.screen.active');
+    let accountTypeEl = loginAccountType;
+    if (activeScreen && activeScreen.id === 'registerScreen' && registerAccountType) {
+        accountTypeEl = registerAccountType;
+    }
+    if (!accountTypeEl) { showToast('خطأ في النموذج', 'error'); return; }
+    sessionStorage.setItem('pendingAccountType', accountTypeEl.value);
+    showLoading(true);
+    try {
+        // استخدام الرابط الحالي الكامل كوجهة عودة ليعمل OAuth بشكل صحيح بعد إعادة التوجيه
+        const currentUrl = window.location.origin + window.location.pathname;
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo: currentUrl }
+        });
+        if (error) {
+            console.error('❌ خطأ في تسجيل الدخول عبر Google:', error);
+            showToast(error.message || 'فشل تسجيل الدخول عبر Google', 'error');
+            showBearReaction(false);
+        }
+        // عند النجاح سيتم توجيه المستخدم إلى صفحة Google ثم العودة تلقائياً
+    } catch (err) {
+        console.error('❌ استثناء غير متوقع في Google login:', err);
+        showToast(err.message || 'حدث خطأ غير متوقع أثناء تسجيل الدخول عبر Google', 'error');
+        showBearReaction(false);
+    } finally {
+        showLoading(false);
+    }
+}
+
+// ============================================================
+// تطبيق نوع الحساب المختار قبل تسجيل الدخول عبر Google
+// ============================================================
+async function applyPendingAccountType() {
+    const pendingType = sessionStorage.getItem('pendingAccountType');
+    if (!pendingType) return false;
+    if (!appState.user) {
+        // لا يوجد مستخدم بعد (قد تكون أول زيارة بعد إعادة التوجيه) - ننتظر حتى اكتمال الجلسة
+        return false;
+    }
+    try {
+        const accountType = pendingType;
+        const existing = appState.userData && Object.keys(appState.userData).length > 0
+            ? appState.userData
+            : null;
+
+        const updates = {
+            id: appState.user.id,
+            account_type: accountType,
+            status: accountType === 'delivery' ? 'pending' : 'approved'
+        };
+        if (!existing || !existing.name) {
+            updates.name = appState.user.user_metadata?.full_name || appState.user.email?.split('@')[0] || '';
+        }
+        if (!existing || !existing.governorate) {
+            updates.governorate = appState.user.user_metadata?.governorate || 'قنا';
+        }
+
+        const { error: upsertError } = await supabaseClient
+            .from('user_data')
+            .upsert(updates, { onConflict: 'id' });
+        if (upsertError) {
+            console.warn('⚠️ فشل حفظ نوع الحساب في user_data:', upsertError);
+            return false;
+        }
+
+        // تحديث user_metadata في حساب Supabase حتى يبقى النوع مثالياً بعد تسجيلات الدخول اللاحقة
+        try {
+            const { error: metaError } = await supabaseClient.auth.updateUser({
+                data: { account_type: accountType }
+            });
+            if (metaError) console.warn('⚠️ فشل تحديث user_metadata:', metaError);
+        } catch (metaErr) {
+            console.warn('⚠️ استثناء أثناء تحديث user_metadata:', metaErr);
+        }
+
+        // تحديث الحالة المحلية
+        appState.userData.account_type = accountType;
+        appState.userData.status = accountType === 'delivery' ? 'pending' : 'approved';
+        sessionStorage.removeItem('pendingAccountType');
+        console.log('✅ تم تطبيق نوع الحساب عبر Google:', accountType);
+        return true;
+    } catch (err) {
+        console.error('❌ خطأ في applyPendingAccountType:', err);
+        sessionStorage.removeItem('pendingAccountType');
+        return false;
+    }
 }
 
 async function signInWithEmail() {
@@ -1253,11 +1353,173 @@ async function rejectDeliveryPerson(userId) {
 // ============================================================
 // إشعارات واشتراكات
 // ============================================================
+
+// ========== إشعارات النظام (تظهر على الهاتف حتى لو كان التطبيق مغلقاً) ==========
+const APP_ICON_URL = 'https://i.ibb.co/XktM4crn/1767120438295.png';
+
+// طلب إذن عرض الإشعارات من المتصفح
+async function requestNotificationPermission() {
+    if (!('Notification' in window)) {
+        console.warn('إشعارات النظام غير مدعومة في هذا المتصفح');
+        return false;
+    }
+    if (Notification.permission === 'granted') return true;
+    if (Notification.permission === 'denied') {
+        console.warn('تم رفض إذن الإشعارات من قبل المستخدم');
+        return false;
+    }
+    try {
+        const permission = await Notification.requestPermission();
+        return permission === 'granted';
+    } catch (err) {
+        console.warn('فشل طلب إذن الإشعارات:', err);
+        return false;
+    }
+}
+
+// عرض إشعار نظام على الجهاز الحالي
+function showSystemNotification(title = 'Misar Systems', message = 'لديك إشعار جديد', data = {}) {
+    try {
+        if (!appState.notificationsEnabled) return;
+        if (!('Notification' in window)) return;
+        if (Notification.permission !== 'granted') return;
+
+        const url = data.url || (window.location.origin + window.location.pathname);
+        const notification = new Notification(title, {
+            body: message,
+            icon: data.icon || APP_ICON_URL,
+            badge: APP_ICON_URL,
+            tag: data.tag || 'misar-notification',
+            vibrate: [200, 100, 200],
+            data: { url }
+        });
+
+        notification.onclick = function() {
+            try {
+                window.focus();
+                notification.close();
+                if (data.url) window.location.href = data.url;
+            } catch (e) { window.open(url, '_blank'); }
+        };
+
+        // إغلاق تلقائي بعد 10 ثوانٍ
+        setTimeout(() => notification.close(), 10000);
+    } catch (err) {
+        console.warn('تعذّر عرض إشعار النظام:', err);
+    }
+}
+
+// تسجيل خدمة الإشعارات (طلب الإذن + تثبيت Service Worker)
+async function setupSystemNotifications() {
+    if (!('Notification' in window)) return false;
+    const granted = await requestNotificationPermission();
+    if (!granted) return false;
+    // التأكد من تسجيل Service Worker ليدعم الإشعارات حتى مع إغلاق التطبيق
+if ('serviceWorker' in navigator && !appState.swRegistration) {
+        try {
+            const reg = await navigator.serviceWorker.ready;
+            appState.swRegistration = reg;
+        } catch (e) {
+            console.warn('لا يمكن الوصول إلى Service Worker:', e);
+        }
+    }
+    return true;
+}
+
+// ============================================================
+// إعدادات الإشعارات (تفعيل/تعطيل إشعارات النظام)
+// ============================================================
+function showNotificationSettingsModal() {
+    const modal = document.getElementById('notificationSettingsModal');
+    if (modal) modal.classList.add('active');
+    const toggle = document.getElementById('notificationsToggle');
+    if (toggle) toggle.checked = !!appState.notificationsEnabled;
+    updateNotificationSettingsStatus();
+}
+
+function updateNotificationSettingsStatus() {
+    const statusEl = document.getElementById('notificationSettingsStatus');
+    if (!statusEl) return;
+    const supported = 'Notification' in window;
+    if (!supported) {
+        statusEl.textContent = 'إشعارات النظام غير مدعومة في هذا المتصفح';
+        statusEl.style.color = '#e53935';
+        return;
+    }
+    if (!appState.notificationsEnabled) {
+        statusEl.textContent = 'إشعارات النظام معطلة';
+        statusEl.style.color = '#e53935';
+        return;
+    }
+    if (Notification.permission === 'granted') {
+        statusEl.textContent = 'مفعلة — ستظهر الإشعارات على جهازك';
+        statusEl.style.color = '#2e7d32';
+    } else if (Notification.permission === 'denied') {
+        statusEl.textContent = 'تم رفض الإذن من المتصفح. فعّل الإذن من إعدادات المتصفح.';
+        statusEl.style.color = '#e53935';
+    } else {
+        statusEl.textContent = 'لم يتم طلب إذن الإشعارات بعد';
+        statusEl.style.color = '#f57f17';
+    }
+}
+
+async function toggleSystemNotifications(enabled) {
+    if (enabled) {
+        if (!('Notification' in window)) {
+            showToast('إشعارات النظام غير مدعومة في هذا المتصفح', 'error');
+            return;
+        }
+        const granted = await setupSystemNotifications();
+        if (!granted) {
+            appState.notificationsEnabled = false;
+            localStorage.setItem('misarNotificationsEnabled', 'false');
+            const toggle = document.getElementById('notificationsToggle');
+            if (toggle) toggle.checked = false;
+            updateNotificationSettingsStatus();
+            showToast('تم رفض إذن الإشعارات', 'error');
+            return;
+        }
+        appState.notificationsEnabled = true;
+        localStorage.setItem('misarNotificationsEnabled', 'true');
+        showToast('تم تفعيل إشعارات النظام', 'success');
+    } else {
+        appState.notificationsEnabled = false;
+        localStorage.setItem('misarNotificationsEnabled', 'false');
+        showToast('تم تعطيل إشعارات النظام', 'info');
+    }
+    updateNotificationSettingsStatus();
+}
+
+function sendTestNotification() {
+    if (!appState.notificationsEnabled) {
+        showToast('يرجى تفعيل الإشعارات أولاً', 'warning');
+        return;
+    }
+    if (!('Notification' in window)) {
+        showToast('إشعارات النظام غير مدعومة', 'error');
+        return;
+    }
+    if (Notification.permission !== 'granted') {
+        showToast('لم يتم منح إذن الإشعارات', 'error');
+        return;
+    }
+    showSystemNotification(
+        'Misar Systems',
+        '🎉 هذا إشعار تجريبي! الإشعارات تعمل بنجاح.',
+        { tag: 'misar-test-notification' }
+    );
+    showToast('تم إرسال إشعار تجريبي', 'success');
+}
+
 async function sendNotification(userId, title, message, data = {}) {
     try {
         await supabaseClient.from('notifications').insert({
             user_id: userId, title, message, data, created_at: new Date(), is_read: false
         });
+        // إذا كان هذا الإشعار موجهاً للمستخدم الحالي، نعرضه كإشعار نظام فوراً
+        if (appState.user && appState.user.id === userId) {
+            showSystemNotification(title, message, data);
+        }
     } catch (error) { console.warn('فشل إرسال الإشعار', error); }
 }
 async function loadUnreadNotificationsCount() {
@@ -1294,8 +1556,10 @@ function setupRealtimeSubscriptions() {
     appState.notificationsSubscription = supabaseClient.channel('notifications-channel')
         .on('postgres_changes', {
             event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${appState.user.id}`
-        }, (payload) => {
+}, (payload) => {
             showToast(payload.new.title, 'info');
+            // عرض إشعار النظام أيضاً (يظهر حتى عند تصغير التطبيق أو إغلاقه)
+            showSystemNotification(payload.new.title, payload.new.message, payload.new.data || {});
             loadUnreadNotificationsCount();
         }).subscribe();
 }
@@ -1359,7 +1623,16 @@ function showScreen(screenId) {
         if (clearSearch) clearSearch.style.display = 'none';
         if (typeof loadMarketProducts === 'function') loadMarketProducts();
     }
-    if (screenId === 'profileScreen') updateProfileLocation();
+    if (screenId === 'profileScreen') {
+        updateProfileLocation();
+        // تحديث عداد عدد الطلبات في بطاقة "طلبات" بالملف الشخصي
+        if (appState.user && typeof loadBuyerOrdersWithTimeline === 'function') {
+            loadBuyerOrdersWithTimeline();
+        } else {
+            const profileOrdersCountEl = document.getElementById('profileOrdersCount');
+            if (profileOrdersCountEl) profileOrdersCountEl.textContent = '0';
+        }
+    }
     if (screenId === 'editProfileScreen' && appState.user) updateProfileLocation();
     if (screenId === 'servicesScreen') {
         if (typeof loadServices === 'function') loadServices();
@@ -1914,6 +2187,7 @@ window.showLoading = showLoading;
 window.showToast = showToast;
 window.escapeHTML = escapeHTML;
 window.signInWithGoogle = signInWithGoogle;
+window.applyPendingAccountType = applyPendingAccountType;
 window.signInWithEmail = signInWithEmail;
 window.signUpWithEmail = signUpWithEmail;
 window.logout = logout;
@@ -1950,6 +2224,12 @@ window.saveLocation = saveLocation;
 window.loadUnreadNotificationsCount = loadUnreadNotificationsCount;
 window.setupRealtimeSubscriptions = setupRealtimeSubscriptions;
 window.sendNotification = sendNotification;
+window.requestNotificationPermission = requestNotificationPermission;
+window.showSystemNotification = showSystemNotification;
+window.setupSystemNotifications = setupSystemNotifications;
+window.showNotificationSettingsModal = showNotificationSettingsModal;
+window.toggleSystemNotifications = toggleSystemNotifications;
+window.sendTestNotification = sendTestNotification;
 window.loadGlobalFounderVisibility = loadGlobalFounderVisibility;
 window.initFounderSettings = initFounderSettings;
 window.handleToggleChange = handleToggleChange;

@@ -5,14 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Misar Systems | مسار سيستمز</title>
     <meta name="theme-color" content="#1a237e">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" type="image/x-icon" href="https://i.ibb.co/XktM4crn/1767120438295.png">
     <link rel="stylesheet" href="style.css">
+    	    <link rel="stylesheet" href="banners.css">
     <meta name="google-site-verification" content="jpQbVa-GjiReP-X6Lf-sl5nripN0wcmPfttqgzKRMWk" />
 </head>
 <body>
@@ -131,11 +133,13 @@
                 </div>
                 <h1 class="register-title">إنشاء حساب جديد</h1>
                 <p class="register-subtitle">أدخل بياناتك للتسجيل</p>
-                <select class="account-type-select" id="registerAccountType">
+<select class="account-type-select" id="registerAccountType">
                     <option value="client" selected>عميل</option>
                     <option value="seller">بائع</option>
                     <option value="delivery">مندوب</option>
                 </select>
+                <button class="google-btn" id="googleRegisterBtn"><i class="fab fa-google"></i> التسجيل عبر Google</button>
+                <div style="text-align:center; margin:15px 0; color:#aaa;">أو أنشئ حساباً بالبريد الإلكتروني</div>
                 <div class="input-group">
                     <label class="input-label">المحافظة</label>
                     <select class="location-select" id="registerGovernorate">
@@ -188,9 +192,9 @@
         </div>
     </div>
 
-    <!-- ========== الشاشة الرئيسية ========== -->
+<!-- ========== الشاشة الرئيسية ========== -->
     <div class="screen hidden" id="homeScreen">
-        <div class="app-header">
+        <div class="app-header home-header">
             <div class="header-content">
                 <div class="header-left">
                     <button class="back-btn" onclick="goBack()"><i class="fas fa-arrow-right"></i></button>
@@ -203,21 +207,45 @@
                 </div>
             </div>
         </div>
-        <div class="welcome-section">
-            <div style="display:flex; align-items:center; justify-content:space-between;">
+<div class="welcome-section">
+<div style="display:flex; align-items:center; justify-content:space-between;">
                 <div class="welcome-text"><h1 id="welcomeName">مرحباً، زائر</h1><p id="welcomeLocation">موقعك: قنا - قنا</p></div>
                 <div class="user-avatar" id="welcomeAvatar" onclick="showScreen('editProfileScreen')"><i class="fas fa-user"></i></div>
             </div>
         </div>
-        <div class="quick-actions">
-            <div class="section-title"><span>إجراءات سريعة</span><a href="#" style="font-size:0.9rem; color:#1a237e;">عرض الكل</a></div>
-            <div class="actions-grid">
-                <a href="#" class="action-btn" onclick="showScreen('marketScreen')"><div class="action-icon"><i class="fas fa-shopping-bag"></i></div><span class="action-label">التسوق</span></a>
-                <a href="#" class="action-btn" onclick="showScreen('servicesScreen')"><div class="action-icon"><i class="fas fa-tools"></i></div><span class="action-label">الخدمات</span></a>
-                <a href="#" class="action-btn" onclick="showScreen('ordersScreen')"><div class="action-icon"><i class="fas fa-shopping-cart"></i></div><span class="action-label">طلباتي</span></a>
-                <a href="#" class="action-btn" onclick="showScreen('walletScreen')"><div class="action-icon"><i class="fas fa-wallet"></i></div><span class="action-label">المحفظة</span></a>
+        <!-- ========== Hero Banners Slider (replaces quick actions) ========== -->
+        <div class="hero-slider" id="heroSlider">
+            <div class="hero-slides" id="heroSlides" aria-live="polite"></div>
+            <button class="hero-arrow prev" id="heroPrev" aria-label="السابق">‹</button>
+            <button class="hero-arrow next" id="heroNext" aria-label="التالي">›</button>
+<div class="hero-dots" id="heroDots" role="tablist" aria-label="اختيارات الإعلان"></div>
+        </div>
+
+        <!-- ========== أزرار الوصول السريع تحت الإعلان ========== -->
+        <div class="home-quick-actions">
+            <button class="quick-action-btn" onclick="showScreen('ordersScreen')">
+                <i class="fas fa-shopping-bag"></i><span>طلباتي</span>
+            </button>
+            <button class="quick-action-btn" onclick="showScreen('cartScreen')">
+                <i class="fas fa-shopping-cart"></i><span>السلة</span>
+            </button>
+        </div>
+
+        <!-- Banner Detail Modal (vertical/fullscreen) -->
+        <div id="bannerDetailModal" class="banner-detail-modal" aria-hidden="true">
+            <div class="banner-detail-card" role="dialog" aria-modal="true" aria-labelledby="bannerDetailTitle">
+                <div id="bannerDetailMedia" class="banner-detail-media"></div>
+                <div class="banner-detail-content">
+                    <h3 id="bannerDetailTitle" class="banner-detail-title"></h3>
+                    <div id="bannerDetailDesc" class="banner-detail-desc"></div>
+                    <div class="banner-detail-cta">
+                        <button id="bannerDetailVisit" class="btn-visit">اذهب للرابط</button>
+                        <button id="bannerDetailClose" class="btn-close">إغلاق</button>
+                    </div>
+                </div>
             </div>
         </div>
+
         <div class="categories-section">
             <div class="section-title">الأقسام الرئيسية</div>
             <div class="categories-grid">
@@ -253,11 +281,11 @@
         </div>
     </div>
 
-    <!-- ========== شاشة السلة ========== -->
+<!-- ========== شاشة السلة ========== -->
     <div class="screen hidden" id="cartScreen">
-        <div class="app-header">
+        <div class="app-header home-header">
             <div class="header-content">
-                <div class="header-left"><button class="back-btn active" onclick="goBack()"><i class="fas fa-arrow-right"></i></button><div class="header-title">سلة التسوق</div></div>
+                <div class="header-left"><button class="back-btn active" onclick="goBack()"><i class="fas fa-arrow-right"></i></button><img src="https://i.ibb.co/XktM4crn/1767120438295.png" alt="Misar Systems" class="app-logo" loading="lazy"><div class="header-title">سلة التسوق</div></div>
                 <div class="header-actions">
                     <button class="header-icon" onclick="loadCart()"><i class="fas fa-sync-alt"></i></button>
                 </div>
@@ -288,20 +316,20 @@
     </div>
 
     <!-- ========== شاشة الخدمات ========== -->
-    <div class="screen hidden" id="servicesScreen">
-        <div class="app-header">
+<div class="screen hidden" id="servicesScreen">
+        <div class="app-header home-header">
             <div class="header-content">
-                <div class="header-left"><button class="back-btn active" onclick="goBack()"><i class="fas fa-arrow-right"></i></button><div class="header-title">الخدمات</div></div>
+                <div class="header-left"><button class="back-btn active" onclick="goBack()"><i class="fas fa-arrow-right"></i></button><img src="https://i.ibb.co/XktM4crn/1767120438295.png" alt="Misar Systems" class="app-logo" loading="lazy"><div class="header-title">الخدمات</div></div>
             </div>
         </div>
         <div class="services-list" id="servicesList"></div>
     </div>
 
-    <!-- ========== شاشة الملف الشخصي ========== -->
+<!-- ========== شاشة الملف الشخصي ========== -->
     <div class="screen hidden" id="profileScreen">
-        <div class="app-header">
+        <div class="app-header home-header">
             <div class="header-content">
-                <div class="header-left"><button class="back-btn active" onclick="goBack()"><i class="fas fa-arrow-right"></i></button><div class="header-title">الملف الشخصي</div></div>
+                <div class="header-left"><button class="back-btn active" onclick="goBack()"><i class="fas fa-arrow-right"></i></button><img src="https://i.ibb.co/XktM4crn/1767120438295.png" alt="Misar Systems" class="app-logo" loading="lazy"><div class="header-title">الملف الشخصي</div></div>
             </div>
         </div>
         <div class="profile-header">
@@ -311,14 +339,11 @@
             <div class="profile-location" id="profileLocation">المنطقة: غير محددة</div>
             <div class="edit-avatar-icon" onclick="showScreen('editProfileScreen')"><i class="fas fa-pen"></i></div>
         </div>
-        <div class="profile-stats">
-            <div class="stat-card"><div class="stat-value" id="profileOrdersCount">0</div><div class="stat-label">طلبات</div></div>
-            <div class="stat-card"><div class="stat-value">0</div><div class="stat-label">رصيد</div></div>
-            <div class="stat-card"><div class="stat-value">0</div><div class="stat-label">نقاط</div></div>
+<div class="profile-stats" style="justify-content:center;">
+            <div class="stat-card" style="flex:0 0 auto; min-width:120px;"><div class="stat-value" id="profileOrdersCount">0</div><div class="stat-label">طلبات</div></div>
         </div>
         <div class="profile-menu">
-            <a href="#" class="menu-item" onclick="showScreen('ordersScreen')"><div class="menu-icon"><i class="fas fa-shopping-bag"></i></div><div class="menu-text">طلباتي</div><i class="fas fa-chevron-left menu-arrow"></i></a>
-            <a href="#" class="menu-item" onclick="showScreen('walletScreen')"><div class="menu-icon"><i class="fas fa-wallet"></i></div><div class="menu-text">المحفظة الإلكترونية</div><i class="fas fa-chevron-left menu-arrow"></i></a>
+<a href="#" class="menu-item" onclick="showScreen('ordersScreen')"><div class="menu-icon"><i class="fas fa-shopping-bag"></i></div><div class="menu-text">طلباتي</div><i class="fas fa-chevron-left menu-arrow"></i></a>
             <a href="#" class="menu-item" id="sellerDashboardMenuItem" style="display:none;" onclick="showScreen('sellerDashboardScreen')"><div class="menu-icon"><i class="fas fa-store"></i></div><div class="menu-text">لوحة البائع</div><i class="fas fa-chevron-left menu-arrow"></i></a>
             <a href="#" class="menu-item" id="deliveryDashboardMenuItem" style="display:none;" onclick="showScreen('deliveryDashboardScreen')"><div class="menu-icon"><i class="fas fa-truck"></i></div><div class="menu-text">لوحة المندوب</div><i class="fas fa-chevron-left menu-arrow"></i></a>
             <a href="#" class="menu-item" id="founderDashboardMenuItem" style="display:none;" onclick="showScreen('founderDashboardScreen')"><div class="menu-icon"><i class="fas fa-crown"></i></div><div class="menu-text">لوحة تحكم المؤسس</div><i class="fas fa-chevron-left menu-arrow"></i></a>
@@ -331,7 +356,8 @@
             </div>
             <div style="margin: 20px 0 10px; color:#1a237e; font-weight:700;">إعدادات الحساب</div>
             <a href="#" class="menu-item" onclick="showChangePasswordModal()"><div class="menu-icon"><i class="fas fa-key"></i></div><div class="menu-text">تغيير كلمة المرور</div><i class="fas fa-chevron-left menu-arrow"></i></a>
-            <a href="#" class="menu-item" onclick="showSecurityModal()"><div class="menu-icon"><i class="fas fa-shield-alt"></i></div><div class="menu-text">إعدادات الأمان</div><i class="fas fa-chevron-left menu-arrow"></i></a>
+<a href="#" class="menu-item" onclick="showSecurityModal()"><div class="menu-icon"><i class="fas fa-shield-alt"></i></div><div class="menu-text">إعدادات الأمان</div><i class="fas fa-chevron-left menu-arrow"></i></a>
+            <a href="#" class="menu-item" onclick="showNotificationSettingsModal()"><div class="menu-icon"><i class="fas fa-bell"></i></div><div class="menu-text">إعدادات الإشعارات</div><i class="fas fa-chevron-left menu-arrow"></i></a>
             <a href="#" class="menu-item warning" onclick="switchAccount()"><div class="menu-icon"><i class="fas fa-exchange-alt"></i></div><div class="menu-text">تبديل الحساب</div><i class="fas fa-chevron-left menu-arrow"></i></a>
             <a href="#" class="menu-item danger" id="logoutMenuItem" style="display:none;" onclick="confirmLogout()"><div class="menu-icon"><i class="fas fa-sign-out-alt"></i></div><div class="menu-text">تسجيل الخروج</div><i class="fas fa-chevron-left menu-arrow"></i></a>
             <a href="#" class="menu-item" id="loginMenuItem" onclick="showScreen('loginScreen')"><div class="menu-icon"><i class="fas fa-sign-in-alt"></i></div><div class="menu-text">تسجيل الدخول</div><i class="fas fa-chevron-left menu-arrow"></i></a>
@@ -378,11 +404,11 @@
         <div class="products-section" style="padding-top:20px;"><div id="productDetailContent"></div></div>
     </div>
 
-    <!-- ========== شاشة متجر البائع ========== -->
+<!-- ========== شاشة متجر البائع ========== -->
     <div class="screen hidden" id="storeScreen">
-        <div class="app-header">
+        <div class="app-header home-header">
             <div class="header-content">
-                <div class="header-left"><button class="back-btn active" onclick="goBack()"><i class="fas fa-arrow-right"></i></button><div class="header-title">متجر البائع</div></div>
+                <div class="header-left"><button class="back-btn active" onclick="goBack()"><i class="fas fa-arrow-right"></i></button><img src="https://i.ibb.co/XktM4crn/1767120438295.png" alt="Misar Systems" class="app-logo" loading="lazy"><div class="header-title"><span class="title-main">𓂀 ☥ متجر البائع ☥ 𓂀</span></div></div>
             </div>
         </div>
         <div id="storeContent"><div style="text-align:center; padding:50px;">جاري تحميل المتجر...</div></div>
@@ -575,6 +601,7 @@
             <button class="founder-tab" data-tab="reports" onclick="switchFounderTab('reports')"><i class="fas fa-flag"></i> البلاغات</button>
             <button class="founder-tab" data-tab="logs" onclick="switchFounderTab('logs')"><i class="fas fa-history"></i> سجل النشاط</button>
             <button class="founder-tab" data-tab="notifications" onclick="switchFounderTab('notifications')"><i class="fas fa-bell"></i> الإشعارات</button>
+            <button class="founder-tab" data-tab="banners" onclick="switchFounderTab('banners')"><i class="fas fa-image"></i> إدارة الإعلانات</button>
             <button class="founder-tab" data-tab="settings" onclick="switchFounderTab('settings')"><i class="fas fa-cog"></i> الإعدادات</button>
         </div>
 
@@ -798,6 +825,27 @@
             </div>
 
             <!-- تبويب الإعدادات -->
+            <!-- تبويب إدارة الإعلانات -->
+            <div id="tab-banners" class="founder-tab-panel">
+                <div class="founder-card">
+                    <h3>إدارة الإعلانات</h3>
+                    <div class="input-group"><label class="input-label">رفع صورة الإعلان</label><input type="file" id="bannerImageInput" accept="image/*"></div>
+                    <div class="input-group"><div class="banner-preview" id="bannerPreview"><img id="bannerImagePreviewImg" src="" alt="معاينة الإعلان" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:8px;"></div></div>
+                    <div class="input-group"><label class="input-label">العنوان</label><input type="text" id="bannerTitle" class="input-field" placeholder="عنوان الإعلان"></div>
+                    <div class="input-group"><label class="input-label">الوصف</label><textarea id="bannerDescription" class="input-field" rows="3" placeholder="وصف قصير للاعلان (اختياري)"></textarea></div>
+                    <div class="input-group"><label class="input-label">الرابط (URL)</label><input type="text" id="bannerLink" class="input-field" placeholder="https://example.com/product/123"></div>
+                    <div class="input-group"><label class="input-label">ترتيب العرض (رقم، أصغر أول)</label><input type="number" id="bannerSortOrder" class="input-field" value="0"></div>
+                    <div class="input-group"><label class="input-label">نشط</label><label class="switch"><input type="checkbox" id="bannerActive" checked><span class="slider"></span></label></div>
+                    <div style="display:flex; gap:10px; margin-top:12px;"><button class="login-btn" id="saveBannerBtn"><i class="fas fa-save"></i> حفظ الإعلان</button><button class="google-btn" id="clearBannerFormBtn">مسح النموذج</button></div>
+                </div>
+                <div style="margin-top:18px;">
+                    <h4>قائمة الإعلانات</h4>
+                    <table class="founder-table" id="bannersTable">
+                        <thead><tr><th>الصورة</th><th>العنوان</th><th>الرابط</th><th>الترتيب</th><th>نشط</th><th>الإجراءات</th></tr></thead>
+                        <tbody id="bannersTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
             <div id="tab-settings" class="founder-tab-panel">
                 <div class="founder-card">
                     <h3>إعدادات التطبيق</h3>
@@ -809,16 +857,7 @@
         </div> <!-- end founder-tab-content -->
     </div> <!-- end founderDashboardScreen -->
 
-    <!-- ========== شاشات أخرى ========== -->
-    <div class="screen hidden" id="walletScreen">
-        <div class="app-header">
-            <div class="header-content">
-                <div class="header-left"><button class="back-btn active" onclick="goBack()"><i class="fas fa-arrow-right"></i></button><div class="header-title">المحفظة الإلكترونية</div></div>
-            </div>
-        </div>
-        <div style="text-align:center; padding:50px;"><i class="fas fa-wallet" style="font-size:4rem; color:#1a237e;"></i><h3 style="margin:20px 0;">المحفظة قيد التطوير</h3><p>سيتم إضافة هذه الميزة قريباً</p></div>
-    </div>
-
+<!-- ========== شاشات أخرى ========== -->
     <div class="screen hidden" id="electronicsScreen">
         <div class="app-header"><div class="header-content"><div class="header-left"><button class="back-btn active" onclick="goBack()"><i class="fas fa-arrow-right"></i></button><div class="header-title">إلكترونيات</div></div></div></div>
         <div class="products-section"><div class="products-grid" id="electronicsProducts"></div></div>
@@ -860,6 +899,16 @@
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;"><span>المصادقة الثنائية</span><label class="switch"><input type="checkbox" id="twoFactorCheck"><span class="slider round"></span></label></div>
             <p style="color:#666; font-size:0.9rem;">عند التفعيل، سيتم إرسال رمز إلى هاتفك عند كل تسجيل دخول.</p>
             <div style="display:flex; gap:10px; margin-top:20px;"><button class="login-btn" style="flex:1;" onclick="saveSecuritySettings()">حفظ</button><button class="google-btn" style="flex:1;" onclick="closeModal('securityModal')">إغلاق</button></div>
+        </div>
+    </div>
+
+<div id="notificationSettingsModal" class="modal" onclick="if(event.target===this) closeModal('notificationSettingsModal')">
+        <div class="modal-content">
+            <h3 style="color:#1a237e; margin-bottom:15px;"><i class="fas fa-bell"></i> إعدادات الإشعارات</h3>
+            <p style="margin-bottom:20px;">تحكم في إشعارات النظام التي تظهر على جهازك حتى عند إغلاق التطبيق.</p>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;"><span>تفعيل إشعارات النظام</span><label class="switch"><input type="checkbox" id="notificationsToggle"><span class="slider round"></span></label></div>
+            <p id="notificationSettingsStatus" style="color:#666; font-size:0.9rem;">جاري الفحص...</p>
+            <div style="display:flex; gap:10px; margin-top:20px;"><button class="login-btn" style="flex:1;" onclick="sendTestNotification()"><i class="fas fa-paper-plane"></i> إرسال إشعار تجريبي</button><button class="google-btn" style="flex:1;" onclick="closeModal('notificationSettingsModal')">إغلاق</button></div>
         </div>
     </div>
 
@@ -1047,6 +1096,8 @@
 <script src="js/admin-reports.js"></script>
 <script src="js/admin-logs.js"></script>
 <script src="js/admin-settings.js"></script>
+<script src="js/admin-banners.js"></script>
+<script src="js/banners.js"></script>
 <script src="js/products.js"></script>
 <script src="js/product.js"></script>
 <script src="js/cart.js"></script>
@@ -1065,7 +1116,7 @@
 
         // 2. جلسة المستخدم
         const { data: { session } } = await supabaseClient.auth.getSession();
-        if (session) {
+if (session) {
             const user = session.user;
             appState.user = {
                 id: user.id,
@@ -1073,6 +1124,12 @@
                 user_metadata: user.user_metadata
             };
             await loadUserData();
+            // تطبيق نوع الحساب الذي اختاره المستخدم قبل تسجيل الدخول عبر Google (إن وُجد)
+            const appliedType = await applyPendingAccountType();
+            if (appliedType) {
+                // إعادة تحميل بيانات المستخدم بعد تطبيق نوع الحساب
+                await loadUserData();
+            }
             appState.currentScreen = appState.userData.account_type === 'seller' ? 'sellerDashboardScreen' :
                                      (appState.userData.account_type === 'delivery' ? 'deliveryDashboardScreen' :
                                      (appState.userData.account_type === 'founder' ? 'founderDashboardScreen' :
@@ -1081,7 +1138,7 @@
             appState.currentScreen = appState.location ? 'homeScreen' : 'locationScreen';
         }
 
-        // 3. تحميل البيانات الأساسية
+// 3. تحميل البيانات الأساسية
         await loadProductsFromDB();
         loadFeaturedProducts();
         loadMarketProducts();
@@ -1089,9 +1146,69 @@
         loadCart();
         await updateCartBadgeFromDB();
 
+        // 3.2 تسجيل Service Worker لتفعيل الإشعارات على الهاتف (PWA)
+        if ('serviceWorker' in navigator) {
+            try {
+                const registration = await navigator.serviceWorker.register('./sw.js');
+                console.log('✅ تم تسجيل Service Worker بنجاح');
+                appState.swRegistration = registration;
+            } catch (swErr) {
+                console.warn('فشل تسجيل Service Worker:', swErr);
+            }
+        }
+
+        // 3.5 معالجة روابط URL المشتركة (منتج أو متجر)
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const productId = urlParams.get('id');
+            const storeId = urlParams.get('store');
+            const founderParam = urlParams.get('founder');
+
+            if (productId) {
+                const product = appState.products.find(p => p.id === productId);
+                if (product) {
+                    appState.currentScreen = 'productDetailScreen';
+                    setTimeout(() => {
+                        document.getElementById('loadingScreen').style.display = 'none';
+                        openProductDetail(product);
+                        // إزالة المعامل من الرابط دون إعادة تحميل الصفحة
+                        const cleanUrl = window.location.pathname + window.location.hash;
+                        window.history.replaceState({}, '', cleanUrl);
+                    }, 1500);
+                }
+            } else if (storeId) {
+                appState.currentScreen = 'storeScreen';
+                setTimeout(() => {
+                    document.getElementById('loadingScreen').style.display = 'none';
+                    if (typeof showStorePage === 'function') {
+                        showStorePage(decodeURIComponent(storeId));
+                    }
+                    const cleanUrl = window.location.pathname + window.location.hash;
+                    window.history.replaceState({}, '', cleanUrl);
+                }, 1500);
+            } else if (founderParam) {
+                appState.currentScreen = 'homeScreen';
+                setTimeout(() => {
+                    document.getElementById('loadingScreen').style.display = 'none';
+                    if (typeof openFounderProfile === 'function') {
+                        openFounderProfile();
+                    }
+                    const cleanUrl = window.location.pathname + window.location.hash;
+                    window.history.replaceState({}, '', cleanUrl);
+                }, 1500);
+            }
+        } catch (urlErr) {
+            console.warn('فشل معالجة معاملات الرابط:', urlErr);
+        }
+
         // 4. إخفاء شاشة التحميل وعرض الشاشة المناسبة
         setTimeout(() => {
             document.getElementById('loadingScreen').style.display = 'none';
+            // إذا تم التعامل مع رابط منتج/متجر/مؤسس أعلاه، لا نعرض الشاشة الافتراضية
+            const handledByUrl = !!(new URLSearchParams(window.location.search).get('id') ||
+                new URLSearchParams(window.location.search).get('store') ||
+                new URLSearchParams(window.location.search).get('founder'));
+            if (handledByUrl) return;
             showScreen(appState.currentScreen);
             if (appState.location) {
                 updateWelcomeLocation();
@@ -1126,6 +1243,11 @@
                     user_metadata: session.user.user_metadata
                 };
                 await loadUserData();
+                // تطبيق نوع الحساب الذي اختاره المستخدم قبل تسجيل الدخول عبر Google (إن وُجد)
+                const appliedType = await applyPendingAccountType();
+                if (appliedType) {
+                    await loadUserData();
+                }
                 toggleLoginMenu(true);
                 const accountType = appState.userData?.account_type || 'client';
                 toggleSellerMenuItem(accountType === 'seller');
@@ -1177,11 +1299,23 @@
             else showToast('حدث خطأ في النظام', 'error');
         });
 
-        // زر Google
+// زر Google (تسجيل الدخول)
         document.getElementById('googleLoginBtn')?.addEventListener('click', function(e) {
             e.preventDefault();
             if (typeof signInWithGoogle === 'function') signInWithGoogle();
             else showToast('حدث خطأ في النظام', 'error');
+        });
+
+        // زر Google (التسجيل) - يستخدم نوع الحساب المختار في شاشة التسجيل
+        document.getElementById('googleRegisterBtn')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (typeof signUpWithGoogle === 'function') {
+                signUpWithGoogle();
+            } else if (typeof signInWithGoogle === 'function') {
+                signInWithGoogle();
+            } else {
+                showToast('حدث خطأ في النظام', 'error');
+            }
         });
 
         // روابط التبديل
@@ -1247,10 +1381,19 @@
         // مستمع تغيير نوع المستلم في الإشعارات
         document.getElementById('notificationRecipients')?.addEventListener('change', function() {
             const specificEmail = document.getElementById('specificUserEmail');
-            if (this.value === 'specific') {
+if (this.value === 'specific') {
                 specificEmail.style.display = 'block';
             } else {
                 specificEmail.style.display = 'none';
+            }
+        });
+
+        // مستمع تبديل إعدادات الإشعارات
+        document.getElementById('notificationsToggle')?.addEventListener('change', function() {
+            if (typeof toggleSystemNotifications === 'function') {
+                toggleSystemNotifications(this.checked);
+            } else {
+                showToast('حدث خطأ في النظام', 'error');
             }
         });
 
@@ -1289,7 +1432,8 @@
             case 'services': if (typeof loadServicesTableAdmin === 'function') loadServicesTableAdmin(); break;
             case 'orders': if (typeof loadOrdersTableAdmin === 'function') loadOrdersTableAdmin(); break;
             case 'reports': if (typeof loadReportsTable === 'function') loadReportsTable(); break;
-            case 'logs': if (typeof loadLogsTable === 'function') loadLogsTable(); break;
+case 'logs': if (typeof loadLogsTable === 'function') loadLogsTable(); break;
+            case 'banners': if (typeof refreshBannersAdmin === 'function') refreshBannersAdmin(); break;
             case 'settings': if (typeof loadSettingsForm === 'function') loadSettingsForm(); break;
         }
     };
