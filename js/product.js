@@ -476,12 +476,11 @@ async function markHelpful(reviewId) {
     try {
         await markReviewHelpful(reviewId, appState.user.id);
         showToast('شكراً لك! تم تسجيل تقييمك كمفيد.', 'success');
-        // تحديث عدد الإعجابات في الواجهة
+        // تحديث عدد الإعجابات في الواجهة مع الحفاظ على أيقونة الإبهام
         const btn = document.querySelector(`.review-item[data-review-id="${reviewId}"] .helpful-btn`);
         if (btn) {
-            const countSpan = btn.querySelector('.helpful-count') || btn;
-            const current = parseInt(countSpan.textContent.match(/\d+/)?.[0] || 0);
-            countSpan.textContent = ` مفيد (${current + 1})`;
+            const current = parseInt(btn.textContent.match(/\d+/)?.[0] || 0);
+            btn.innerHTML = `<i class="fas fa-thumbs-up"></i> مفيد (${current + 1})`;
         }
     } catch (err) {
         showToast(err.message, 'error');

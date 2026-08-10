@@ -555,6 +555,10 @@ async function loadBuyerOrdersWithTimeline() {
     
     // تخزين الطلبات في الحالة العامة للتصفية
     appState.buyerOrders = orders;
+
+    // تحديث عداد عدد الطلبات في بطاقة "طلبات" بالملف الشخصي
+    const profileOrdersCountEl = document.getElementById('profileOrdersCount');
+    if (profileOrdersCountEl) profileOrdersCountEl.textContent = orders.length;
     
     if (orders.length === 0) {
         container.innerHTML = '<p style="text-align:center; padding:30px;">لا توجد طلبات</p>';
