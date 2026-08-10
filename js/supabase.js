@@ -295,52 +295,35 @@ async function getReviewStats(productId) {
 
 async function markReviewHelpful(reviewId, userId) {
     if (!userId) throw new Error('يجب تسجيل الدخول');
+    const { data: existing, error: checkError } = await supabaseClient
+        .from('review_helpful')
+        .select('id')
+        .eq('review_id', reviewId)
+        .eq('user_id', userId)
+        .maybeSingle();
+    if (checkError) throw checkError;
+    if (existing) throw new Error('لقد قمت بتحديد هذا التقييم كمفيد سابقاً');
 
-    // تسجيل الإعجاب في جدول review_helpful (إن وُجد الجدول وسمح RLS)
-    // لا نمنع زيادة العدد إذا كان هذا الجدول غير متاح، بل نكمل برفع العدد فقط.
-    try {
-        const { data: existing, error: checkError } = await supabaseClient
-            .from('review_helpful')
-            .select('id')
-            .eq('review_id', reviewId)
-            .eq('user_id', userId)
-            .maybeSingle();
-        if (checkError) throw checkError;
-        if (existing) throw new Error('لقد قمت بتحديد هذا التقييم كمفيد سابقاً');
+    const { error: insertError } = await supabaseClient
+        .from('review_helpful')
+        .insert({ review_id: reviewId, user_id: userId, created_at: new Date() });
+    if (insertError) throw insertError;
 
-        const { error: insertError } = await supabaseClient
-            .from('review_helpful')
-            .insert({ review_id: reviewId, user_id: userId, created_at: new Date() });
-        if (insertError) throw insertError;
-    } catch (e) {
-        // إذا كان الخطأ هو "قيّمت سابقاً" نعيده للمستخدم، وإلا نتجاهله ونكمل بزيادة العدد
-        if (e && e.message === 'لقد قمت بتحديد هذا التقييم كمفيد سابقاً') throw e;
-        console.warn('لم يتم تسجيل الإعجاب في review_helpful (سيتم زيادة العدد فقط):', e);
-    }
-
-    // زيادة عدد الإعجابات "مفيد" في جدول reviews
-    try {
-        // أولاً: محاولة استخدام دالة RPC (زيادة ذرّية)
-        const { error: rpcError } = await supabaseClient
-            .rpc('increment_helpful_count', { review_id: reviewId });
-        if (rpcError) throw rpcError;
-    } catch (rpcErr) {
-        // إذا لم توجد دالة RPC، نقرأ العدد الحالي ثم نزيده يدوياً
-        try {
-            const { data: review, error: fetchError } = await supabaseClient
+    const { error: updateError } = await supabaseClient
+        .from('reviews')
+        .update({ helpful_count: supabaseClient.rpc('increment_helpful_count', { review_id: reviewId }) })
+        .eq('id', reviewId);
+    if (updateError) {
+        const { data: review } = await supabaseClient
+            .from('reviews')
+            .select('helpful_count')
+            .eq('id', reviewId)
+            .single();
+        if (review) {
+            await supabaseClient
                 .from('reviews')
-                .select('helpful_count')
-                .eq('id', reviewId)
-                .single();
-            if (!fetchError && review) {
-                const { error: updateError } = await supabaseClient
-                    .from('reviews')
-                    .update({ helpful_count: (review.helpful_count || 0) + 1 })
-                    .eq('id', reviewId);
-                if (updateError) throw updateError;
-            }
-        } catch (e2) {
-            console.warn('فشل زيادة عدد "مفيد" في قاعدة البيانات:', e2);
+                .update({ helpful_count: (review.helpful_count || 0) + 1 })
+                .eq('id', reviewId);
         }
     }
 }
@@ -359,96 +342,14 @@ async function getHelpfulCount(reviewId) {
 // ============================================================
 
 async function signInWithGoogle() {
-    // تحديد نوع الحساب من الشاشة النشطة (تسجيل الدخول أو التسجيل)
     const loginAccountType = document.getElementById('loginAccountType');
-    const registerAccountType = document.getElementById('registerAccountType');
-    const activeScreen = document.querySelector('.screen.active');
-    let accountTypeEl = loginAccountType;
-    if (activeScreen && activeScreen.id === 'registerScreen' && registerAccountType) {
-        accountTypeEl = registerAccountType;
-    }
-    if (!accountTypeEl) { showToast('خطأ في النموذج', 'error'); return; }
-    sessionStorage.setItem('pendingAccountType', accountTypeEl.value);
-    showLoading(true);
-    try {
-        // استخدام الرابط الحالي الكامل كوجهة عودة ليعمل OAuth بشكل صحيح بعد إعادة التوجيه
-        const currentUrl = window.location.origin + window.location.pathname;
-        const { error } = await supabaseClient.auth.signInWithOAuth({
-            provider: 'google',
-            options: { redirectTo: currentUrl }
-        });
-        if (error) {
-            console.error('❌ خطأ في تسجيل الدخول عبر Google:', error);
-            showToast(error.message || 'فشل تسجيل الدخول عبر Google', 'error');
-            showBearReaction(false);
-        }
-        // عند النجاح سيتم توجيه المستخدم إلى صفحة Google ثم العودة تلقائياً
-    } catch (err) {
-        console.error('❌ استثناء غير متوقع في Google login:', err);
-        showToast(err.message || 'حدث خطأ غير متوقع أثناء تسجيل الدخول عبر Google', 'error');
-        showBearReaction(false);
-    } finally {
-        showLoading(false);
-    }
-}
-
-// ============================================================
-// تطبيق نوع الحساب المختار قبل تسجيل الدخول عبر Google
-// ============================================================
-async function applyPendingAccountType() {
-    const pendingType = sessionStorage.getItem('pendingAccountType');
-    if (!pendingType) return false;
-    if (!appState.user) {
-        // لا يوجد مستخدم بعد (قد تكون أول زيارة بعد إعادة التوجيه) - ننتظر حتى اكتمال الجلسة
-        return false;
-    }
-    try {
-        const accountType = pendingType;
-        const existing = appState.userData && Object.keys(appState.userData).length > 0
-            ? appState.userData
-            : null;
-
-        const updates = {
-            id: appState.user.id,
-            account_type: accountType,
-            status: accountType === 'delivery' ? 'pending' : 'approved'
-        };
-        if (!existing || !existing.name) {
-            updates.name = appState.user.user_metadata?.full_name || appState.user.email?.split('@')[0] || '';
-        }
-        if (!existing || !existing.governorate) {
-            updates.governorate = appState.user.user_metadata?.governorate || 'قنا';
-        }
-
-        const { error: upsertError } = await supabaseClient
-            .from('user_data')
-            .upsert(updates, { onConflict: 'id' });
-        if (upsertError) {
-            console.warn('⚠️ فشل حفظ نوع الحساب في user_data:', upsertError);
-            return false;
-        }
-
-        // تحديث user_metadata في حساب Supabase حتى يبقى النوع مثالياً بعد تسجيلات الدخول اللاحقة
-        try {
-            const { error: metaError } = await supabaseClient.auth.updateUser({
-                data: { account_type: accountType }
-            });
-            if (metaError) console.warn('⚠️ فشل تحديث user_metadata:', metaError);
-        } catch (metaErr) {
-            console.warn('⚠️ استثناء أثناء تحديث user_metadata:', metaErr);
-        }
-
-        // تحديث الحالة المحلية
-        appState.userData.account_type = accountType;
-        appState.userData.status = accountType === 'delivery' ? 'pending' : 'approved';
-        sessionStorage.removeItem('pendingAccountType');
-        console.log('✅ تم تطبيق نوع الحساب عبر Google:', accountType);
-        return true;
-    } catch (err) {
-        console.error('❌ خطأ في applyPendingAccountType:', err);
-        sessionStorage.removeItem('pendingAccountType');
-        return false;
-    }
+    if (!loginAccountType) { showToast('خطأ في النموذج', 'error'); return; }
+    sessionStorage.setItem('pendingAccountType', loginAccountType.value);
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + window.location.pathname }
+    });
+    if (error) { showToast(error.message, 'error'); showBearReaction(false); }
 }
 
 async function signInWithEmail() {
@@ -2013,7 +1914,6 @@ window.showLoading = showLoading;
 window.showToast = showToast;
 window.escapeHTML = escapeHTML;
 window.signInWithGoogle = signInWithGoogle;
-window.applyPendingAccountType = applyPendingAccountType;
 window.signInWithEmail = signInWithEmail;
 window.signUpWithEmail = signUpWithEmail;
 window.logout = logout;
