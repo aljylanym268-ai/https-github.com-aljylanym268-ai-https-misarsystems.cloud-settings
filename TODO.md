@@ -1,8 +1,14 @@
-# TODO
-- [x] تعديل `js/product.js` لإضافة زر مشاركة المنتج إلى أزرار الموبايل (sticky-actions-mobile) وترتيب الأزرار تحت قسم الكمية.
+# TODO - إعدادات الإشعارات (تفعيل/تعطيل إشعارات النظام)
 
-- [x] تعديل `style.css` لتنظيم `.sticky-actions-mobile` بحيث تعرض 3 أزرار عموديًا.
+## الخطوات المخطط لها
 
-- [ ] التأكد من أن `shareProduct()` يعمل من زر الموبايل.
-- [ ] اختبار سريع على الموبايل/محاكاة عرض <= 767px.
-
+- [x] إضافة حالة `notificationsEnabled` إلى `appState` في `js/supabase.js`
+- [x] كتابة دالة `showNotificationSettingsModal` في `js/supabase.js`
+- [x] كتابة دالة `toggleSystemNotifications` في `js/supabase.js`
+- [x] كتابة دالة `sendTestNotification` في `js/supabase.js`
+- [x] تعديل `showSystemNotification` لاحترام إعداد `notificationsEnabled`
+- [x] تصدير الدوال الجديدة إلى `window`
+- [x] إضافة عنصر قائمة "الإشعارات" في `index.html` داخل `profileScreen`
+- [x] إضافة مودال `notificationSettingsModal` في `index.html`
+- [x] ربط أحداث المودال في `index.html`
+- [ ] اختبار تفعيل/تعطيل الإشعارات وإرسال إشعار تجريبي

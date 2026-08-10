@@ -35,8 +35,9 @@ const appState = {
     founderShares: { whatsapp:0, facebook:0, twitter:0, copy:0 },
     previousScreen: 'homeScreen',
     currentScreen: 'homeScreen',
-    ordersSubscription: null,
-    notificationsSubscription: null
+ordersSubscription: null,
+    notificationsSubscription: null,
+    notificationsEnabled: localStorage.getItem('misarNotificationsEnabled') !== 'false'
 };
 
 // ========== دوال مساعدة ==========
@@ -168,7 +169,6 @@ async function uploadReviewVideo(file, reviewId) {
 // دوال نظام التقييمات والمراجعات
 // ============================================================
 
-// التحقق مما إذا كان المستخدم قد اشترى المنتج واستلمه
 async function canReviewProduct(productId, userId) {
     if (!userId) return false;
     const { data, error } = await supabaseClient
@@ -178,14 +178,10 @@ async function canReviewProduct(productId, userId) {
         .eq('buyer_id', userId)
         .eq('status', 'delivered')
         .maybeSingle();
-    if (error) {
-        console.error('خطأ في التحقق من الشراء:', error);
-        return false;
-    }
+    if (error) { console.error('خطأ في التحقق من الشراء:', error); return false; }
     return !!data;
 }
 
-// التحقق مما إذا كان المستخدم قد قيّم المنتج من قبل
 async function hasUserReviewed(productId, userId) {
     if (!userId) return false;
     const { data, error } = await supabaseClient
@@ -194,14 +190,10 @@ async function hasUserReviewed(productId, userId) {
         .eq('product_id', productId)
         .eq('user_id', userId)
         .maybeSingle();
-    if (error) {
-        console.error('خطأ في التحقق من التقييم:', error);
-        return false;
-    }
+    if (error) { console.error('خطأ في التحقق من التقييم:', error); return false; }
     return !!data;
 }
 
-// جلب تقييم المستخدم للمنتج (للتعديل)
 async function getUserReview(productId, userId) {
     if (!userId) return null;
     const { data, error } = await supabaseClient
@@ -210,14 +202,10 @@ async function getUserReview(productId, userId) {
         .eq('product_id', productId)
         .eq('user_id', userId)
         .maybeSingle();
-    if (error) {
-        console.error('خطأ في جلب تقييم المستخدم:', error);
-        return null;
-    }
+    if (error) { console.error('خطأ في جلب تقييم المستخدم:', error); return null; }
     return data;
 }
 
-// إضافة أو تحديث تقييم
 async function upsertReview(reviewData) {
     const { product_id, user_id, order_id, rating, title, comment, images, video, is_verified_purchase } = reviewData;
     const existing = await getUserReview(product_id, user_id);
@@ -263,16 +251,12 @@ async function upsertReview(reviewData) {
     return result;
 }
 
-// تحديث متوسط التقييم وعدد التقييمات في جدول المنتجات
 async function updateProductRatingStats(productId) {
     const { data, error } = await supabaseClient
         .from('reviews')
         .select('rating')
         .eq('product_id', productId);
-    if (error) {
-        console.error('خطأ في جلب تقييمات المنتج:', error);
-        return;
-    }
+    if (error) { console.error('خطأ في جلب تقييمات المنتج:', error); return; }
     const total = data.length;
     const avg = total > 0 ? data.reduce((sum, r) => sum + r.rating, 0) / total : 0;
     await supabaseClient
@@ -284,7 +268,6 @@ async function updateProductRatingStats(productId) {
         .eq('id', productId);
 }
 
-// جلب تقييمات المنتج مع معلومات المستخدم
 async function loadProductReviews(productId) {
     try {
         const { data, error } = await supabaseClient
@@ -297,13 +280,9 @@ async function loadProductReviews(productId) {
             .order('created_at', { ascending: false });
         if (error) throw error;
         return data || [];
-    } catch (e) {
-        console.error('فشل جلب التقييمات:', e);
-        return [];
-    }
+    } catch (e) { console.error('فشل جلب التقييمات:', e); return []; }
 }
 
-// جلب إحصائيات التقييمات لمنتج
 async function getReviewStats(productId) {
     const reviews = await loadProductReviews(productId);
     const total = reviews.length;
@@ -315,43 +294,58 @@ async function getReviewStats(productId) {
     return { total, average, distribution };
 }
 
-// تسجيل إعجاب "مفيد"
 async function markReviewHelpful(reviewId, userId) {
     if (!userId) throw new Error('يجب تسجيل الدخول');
-    const { data: existing, error: checkError } = await supabaseClient
-        .from('review_helpful')
-        .select('id')
-        .eq('review_id', reviewId)
-        .eq('user_id', userId)
-        .maybeSingle();
-    if (checkError) throw checkError;
-    if (existing) throw new Error('لقد قمت بتحديد هذا التقييم كمفيد سابقاً');
 
-    const { error: insertError } = await supabaseClient
-        .from('review_helpful')
-        .insert({ review_id: reviewId, user_id: userId, created_at: new Date() });
-    if (insertError) throw insertError;
+    // تسجيل الإعجاب في جدول review_helpful (إن وُجد الجدول وسمح RLS)
+    // لا نمنع زيادة العدد إذا كان هذا الجدول غير متاح، بل نكمل برفع العدد فقط.
+    try {
+        const { data: existing, error: checkError } = await supabaseClient
+            .from('review_helpful')
+            .select('id')
+            .eq('review_id', reviewId)
+            .eq('user_id', userId)
+            .maybeSingle();
+        if (checkError) throw checkError;
+        if (existing) throw new Error('لقد قمت بتحديد هذا التقييم كمفيد سابقاً');
 
-    const { error: updateError } = await supabaseClient
-        .from('reviews')
-        .update({ helpful_count: supabaseClient.rpc('increment_helpful_count', { review_id: reviewId }) })
-        .eq('id', reviewId);
-    if (updateError) {
-        const { data: review } = await supabaseClient
-            .from('reviews')
-            .select('helpful_count')
-            .eq('id', reviewId)
-            .single();
-        if (review) {
-            await supabaseClient
+        const { error: insertError } = await supabaseClient
+            .from('review_helpful')
+            .insert({ review_id: reviewId, user_id: userId, created_at: new Date() });
+        if (insertError) throw insertError;
+    } catch (e) {
+        // إذا كان الخطأ هو "قيّمت سابقاً" نعيده للمستخدم، وإلا نتجاهله ونكمل بزيادة العدد
+        if (e && e.message === 'لقد قمت بتحديد هذا التقييم كمفيد سابقاً') throw e;
+        console.warn('لم يتم تسجيل الإعجاب في review_helpful (سيتم زيادة العدد فقط):', e);
+    }
+
+    // زيادة عدد الإعجابات "مفيد" في جدول reviews
+    try {
+        // أولاً: محاولة استخدام دالة RPC (زيادة ذرّية)
+        const { error: rpcError } = await supabaseClient
+            .rpc('increment_helpful_count', { review_id: reviewId });
+        if (rpcError) throw rpcError;
+    } catch (rpcErr) {
+        // إذا لم توجد دالة RPC، نقرأ العدد الحالي ثم نزيده يدوياً
+        try {
+            const { data: review, error: fetchError } = await supabaseClient
                 .from('reviews')
-                .update({ helpful_count: (review.helpful_count || 0) + 1 })
-                .eq('id', reviewId);
+                .select('helpful_count')
+                .eq('id', reviewId)
+                .single();
+            if (!fetchError && review) {
+                const { error: updateError } = await supabaseClient
+                    .from('reviews')
+                    .update({ helpful_count: (review.helpful_count || 0) + 1 })
+                    .eq('id', reviewId);
+                if (updateError) throw updateError;
+            }
+        } catch (e2) {
+            console.warn('فشل زيادة عدد "مفيد" في قاعدة البيانات:', e2);
         }
     }
 }
 
-// الحصول على عدد الإعجابات المفيدة لتقييم
 async function getHelpfulCount(reviewId) {
     const { data, error } = await supabaseClient
         .from('review_helpful')
@@ -366,54 +360,117 @@ async function getHelpfulCount(reviewId) {
 // ============================================================
 
 async function signInWithGoogle() {
+    // تحديد نوع الحساب من الشاشة النشطة (تسجيل الدخول أو التسجيل)
     const loginAccountType = document.getElementById('loginAccountType');
-    if (!loginAccountType) {
-        showToast('خطأ في النموذج', 'error');
-        return;
+    const registerAccountType = document.getElementById('registerAccountType');
+    const activeScreen = document.querySelector('.screen.active');
+    let accountTypeEl = loginAccountType;
+    if (activeScreen && activeScreen.id === 'registerScreen' && registerAccountType) {
+        accountTypeEl = registerAccountType;
     }
-    sessionStorage.setItem('pendingAccountType', loginAccountType.value);
-    const { error } = await supabaseClient.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-            redirectTo: window.location.origin + window.location.pathname
+    if (!accountTypeEl) { showToast('خطأ في النموذج', 'error'); return; }
+    sessionStorage.setItem('pendingAccountType', accountTypeEl.value);
+    showLoading(true);
+    try {
+        // استخدام الرابط الحالي الكامل كوجهة عودة ليعمل OAuth بشكل صحيح بعد إعادة التوجيه
+        const currentUrl = window.location.origin + window.location.pathname;
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo: currentUrl }
+        });
+        if (error) {
+            console.error('❌ خطأ في تسجيل الدخول عبر Google:', error);
+            showToast(error.message || 'فشل تسجيل الدخول عبر Google', 'error');
+            showBearReaction(false);
         }
-    });
-    if (error) {
-        showToast(error.message, 'error');
+        // عند النجاح سيتم توجيه المستخدم إلى صفحة Google ثم العودة تلقائياً
+    } catch (err) {
+        console.error('❌ استثناء غير متوقع في Google login:', err);
+        showToast(err.message || 'حدث خطأ غير متوقع أثناء تسجيل الدخول عبر Google', 'error');
         showBearReaction(false);
+    } finally {
+        showLoading(false);
+    }
+}
+
+// ============================================================
+// تطبيق نوع الحساب المختار قبل تسجيل الدخول عبر Google
+// ============================================================
+async function applyPendingAccountType() {
+    const pendingType = sessionStorage.getItem('pendingAccountType');
+    if (!pendingType) return false;
+    if (!appState.user) {
+        // لا يوجد مستخدم بعد (قد تكون أول زيارة بعد إعادة التوجيه) - ننتظر حتى اكتمال الجلسة
+        return false;
+    }
+    try {
+        const accountType = pendingType;
+        const existing = appState.userData && Object.keys(appState.userData).length > 0
+            ? appState.userData
+            : null;
+
+        const updates = {
+            id: appState.user.id,
+            account_type: accountType,
+            status: accountType === 'delivery' ? 'pending' : 'approved'
+        };
+        if (!existing || !existing.name) {
+            updates.name = appState.user.user_metadata?.full_name || appState.user.email?.split('@')[0] || '';
+        }
+        if (!existing || !existing.governorate) {
+            updates.governorate = appState.user.user_metadata?.governorate || 'قنا';
+        }
+
+        const { error: upsertError } = await supabaseClient
+            .from('user_data')
+            .upsert(updates, { onConflict: 'id' });
+        if (upsertError) {
+            console.warn('⚠️ فشل حفظ نوع الحساب في user_data:', upsertError);
+            return false;
+        }
+
+        // تحديث user_metadata في حساب Supabase حتى يبقى النوع مثالياً بعد تسجيلات الدخول اللاحقة
+        try {
+            const { error: metaError } = await supabaseClient.auth.updateUser({
+                data: { account_type: accountType }
+            });
+            if (metaError) console.warn('⚠️ فشل تحديث user_metadata:', metaError);
+        } catch (metaErr) {
+            console.warn('⚠️ استثناء أثناء تحديث user_metadata:', metaErr);
+        }
+
+        // تحديث الحالة المحلية
+        appState.userData.account_type = accountType;
+        appState.userData.status = accountType === 'delivery' ? 'pending' : 'approved';
+        sessionStorage.removeItem('pendingAccountType');
+        console.log('✅ تم تطبيق نوع الحساب عبر Google:', accountType);
+        return true;
+    } catch (err) {
+        console.error('❌ خطأ في applyPendingAccountType:', err);
+        sessionStorage.removeItem('pendingAccountType');
+        return false;
     }
 }
 
 async function signInWithEmail() {
     const emailInput = document.getElementById('loginEmail');
     const passwordInput = document.getElementById('loginPassword');
-    if (!emailInput || !passwordInput) {
-        showToast('النموذج غير متوفر', 'error');
-        return;
-    }
+    if (!emailInput || !passwordInput) { showToast('النموذج غير متوفر', 'error'); return; }
     const email = emailInput.value.trim();
     const password = passwordInput.value;
-    if (!email || !password) {
-        showToast('يرجى إدخال البريد وكلمة المرور', 'warning');
-        return;
-    }
+    if (!email || !password) { showToast('يرجى إدخال البريد وكلمة المرور', 'warning'); return; }
     showLoading(true);
     try {
         const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        // نجاح المصادقة – المستمع onAuthStateChange سيتولى التحديث
         showBearReaction(true);
-        // رسالة نجاح ستظهر عبر المستمع أيضاً، لكننا نضعها احتياطياً
         showToast('تم تسجيل الدخول بنجاح', 'success');
-        // تنظيف الحقول
         emailInput.value = '';
         passwordInput.value = '';
     } catch (error) {
         showToast(error.message, 'error');
         showBearReaction(false);
-    } finally {
-        showLoading(false);
-    }
+    } finally { showLoading(false); }
 }
 
 function extractErrorMessage(error) {
@@ -464,31 +521,15 @@ async function signUpWithEmail() {
 
     if (accountType === 'delivery') {
         const centerSelect = document.getElementById('deliveryCenterSelect');
-        if (!centerSelect) {
-            showToast('النموذج غير مكتمل', 'error');
-            return;
-        }
+        if (!centerSelect) { showToast('النموذج غير مكتمل', 'error'); return; }
         deliveryCenter = centerSelect.value;
-        if (!deliveryCenter) {
-            showToast('يرجى اختيار المركز للمندوب', 'warning');
-            return;
-        }
+        if (!deliveryCenter) { showToast('يرجى اختيار المركز للمندوب', 'warning'); return; }
     }
 
-    if (!email || !password || !confirm) {
-        showToast('يرجى ملء جميع الحقول المطلوبة', 'warning');
-        return;
-    }
-    if (password !== confirm) {
-        showToast('كلمة المرور غير متطابقة', 'error');
-        return;
-    }
-    if (password.length < 6) {
-        showToast('كلمة المرور يجب أن تكون 6 أحرف على الأقل', 'warning');
-        return;
-    }
+    if (!email || !password || !confirm) { showToast('يرجى ملء جميع الحقول المطلوبة', 'warning'); return; }
+    if (password !== confirm) { showToast('كلمة المرور غير متطابقة', 'error'); return; }
+    if (password.length < 6) { showToast('كلمة المرور يجب أن تكون 6 أحرف على الأقل', 'warning'); return; }
 
-    // حساب المؤسس الثابت
     if (email === 'sa3dgelany@gmail.com') {
         accountType = 'founder';
         if (password !== '123456') {
@@ -545,7 +586,6 @@ async function signUpWithEmail() {
             return;
         }
 
-        // حفظ بيانات المستخدم في جدول user_data
         try {
             const userDataToInsert = {
                 id: data.user.id,
@@ -568,7 +608,6 @@ async function signUpWithEmail() {
             console.warn('⚠️ خطأ غير متوقع أثناء إدراج user_data:', insertErr);
         }
 
-        // تسجيل الدخول التلقائي
         try {
             const { error: signInError } = await supabaseClient.auth.signInWithPassword({ email, password });
             if (signInError) {
@@ -577,7 +616,6 @@ async function signUpWithEmail() {
             } else {
                 showToast('تم إنشاء الحساب وتسجيل الدخول بنجاح!', 'success');
                 showBearReaction(true);
-                // المستمع onAuthStateChange سيتولى التحديث
             }
         } catch (autoLoginErr) {
             console.warn('فشل تسجيل الدخول التلقائي:', autoLoginErr);
@@ -592,11 +630,8 @@ async function signUpWithEmail() {
     } catch (unexpectedError) {
         console.error('❌ خطأ غير متوقع أثناء التسجيل:', unexpectedError);
         let msg = 'حدث خطأ غير متوقع. حاول مرة أخرى.';
-        if (unexpectedError.message) {
-            msg = unexpectedError.message;
-        } else if (typeof unexpectedError === 'string') {
-            msg = unexpectedError;
-        }
+        if (unexpectedError.message) msg = unexpectedError.message;
+        else if (typeof unexpectedError === 'string') msg = unexpectedError;
         showToast(msg, 'error');
         showBearReaction(false);
     } finally {
@@ -624,9 +659,7 @@ async function logout(showConfirm = true) {
         showToast('تم تسجيل الخروج', 'success');
     } catch (error) {
         showToast(error.message, 'error');
-    } finally {
-        showLoading(false);
-    }
+    } finally { showLoading(false); }
 }
 
 async function switchAccount() { if (appState.user) await logout(false); showScreen('loginScreen'); }
@@ -813,10 +846,7 @@ function updateUserInfo(isGuest = false) {
 // ============================================================
 function loadVillagesForCenter(center, selectedVillage = '') {
     const villageSelect = document.getElementById('villageSelect');
-    if (!villageSelect) {
-        console.warn('⚠️ عنصر villageSelect غير موجود في الصفحة');
-        return;
-    }
+    if (!villageSelect) { console.warn('⚠️ عنصر villageSelect غير موجود في الصفحة'); return; }
     villageSelect.innerHTML = '<option value="">اختر القرية</option>';
     if (center && appState.villagesByCenter[center]) {
         const villages = appState.villagesByCenter[center];
@@ -839,19 +869,13 @@ async function saveLocation() {
     const centerSelect = document.getElementById('centerSelect');
     const villageSelect = document.getElementById('villageSelect');
     
-    if (!centerSelect || !villageSelect) {
-        showToast('النموذج غير متوفر', 'error');
-        return;
-    }
+    if (!centerSelect || !villageSelect) { showToast('النموذج غير متوفر', 'error'); return; }
     
     const governorate = governorateSelect ? governorateSelect.value : 'قنا';
     const center = centerSelect.value;
     const village = villageSelect.value;
     
-    if (!center || !village) {
-        showToast('يرجى اختيار المركز والقرية', 'warning');
-        return;
-    }
+    if (!center || !village) { showToast('يرجى اختيار المركز والقرية', 'warning'); return; }
     
     appState.location = { governorate, center, village };
     
@@ -859,18 +883,11 @@ async function saveLocation() {
         try {
             const { error } = await supabaseClient
                 .from('user_data')
-                .upsert({ 
-                    id: appState.user.id, 
-                    governorate, 
-                    center, 
-                    village 
-                });
+                .upsert({ id: appState.user.id, governorate, center, village });
             if (error) throw error;
-            
             appState.userData.governorate = governorate;
             appState.userData.center = center;
             appState.userData.village = village;
-            
         } catch (error) {
             showToast('فشل حفظ الموقع في قاعدة البيانات', 'error');
             console.error(error);
@@ -896,15 +913,10 @@ function openLocationSettings() {
     setTimeout(() => {
         const loc = appState.user ? appState.userData : appState.location;
         if (!loc) return;
-        
         const center = loc.center || '';
         const village = loc.village || '';
-        
         const centerSelect = document.getElementById('centerSelect');
-        if (centerSelect) {
-            centerSelect.value = center;
-        }
-        
+        if (centerSelect) centerSelect.value = center;
         loadVillagesForCenter(center, village);
     }, 150);
 }
@@ -940,10 +952,7 @@ async function saveProfile() {
     if (!appState.user) return showToast('يجب تسجيل الدخول أولاً', 'warning');
     const editName = document.getElementById('editName');
     const editPhone = document.getElementById('editPhone');
-    if (!editName || !editPhone) {
-        showToast('النموذج غير مكتمل', 'error');
-        return;
-    }
+    if (!editName || !editPhone) { showToast('النموذج غير مكتمل', 'error'); return; }
     const name = editName.value.trim();
     const phone = editPhone.value.trim();
     const editUsername = document.getElementById('editUsername');
@@ -977,9 +986,7 @@ async function saveProfile() {
         }
     } catch (error) {
         showToast(error.message, 'error');
-    } finally {
-        showLoading(false);
-    }
+    } finally { showLoading(false); }
 }
 
 // ============================================================
@@ -1022,13 +1029,11 @@ document.getElementById('avatarUpload')?.addEventListener('change', async functi
     } catch (err) {
         showToast(err.message, 'error');
         console.error(err);
-    } finally {
-        showLoading(false);
-    }
+    } finally { showLoading(false); }
 });
 
 // ============================================================
-// إعدادات المؤسس
+// إعدادات المؤسس (رؤية الصفحة)
 // ============================================================
 async function loadGlobalFounderVisibility() {
     try {
@@ -1082,20 +1087,6 @@ async function handleToggleChange(e) {
     }
 }
 
-function openFounderProfile() {
-    if (!appState.founderPageVisible) {
-        showToast('⛔ صفحة المؤسس غير متاحة حالياً', 'warning');
-        return;
-    }
-    closeChatbot();
-    const founderScreen = document.getElementById('founderProfileScreen');
-    if (founderScreen) founderScreen.classList.add('active');
-    loadShareCounts();
-    const shareLinkSpan = document.getElementById('founderShareLink');
-    if (shareLinkSpan) shareLinkSpan.textContent = getFounderShareLink();
-    trackFounderView();
-}
-
 async function initFounderSettings() {
     await loadGlobalFounderVisibility();
     const toggleSwitch = document.getElementById('toggleFounderPage');
@@ -1106,7 +1097,7 @@ async function initFounderSettings() {
 }
 
 // ============================================================
-// دوال المؤسس
+// دوال المؤسس (إحصائيات المشاركات والمشاهدات)
 // ============================================================
 async function loadFounderStats() {
     try {
@@ -1234,6 +1225,25 @@ async function shareFounderPage(method) {
     trackShare(method);
 }
 
+function openFounderProfile() {
+    if (!appState.founderPageVisible) {
+        showToast('⛔ صفحة المؤسس غير متاحة حالياً', 'warning');
+        return;
+    }
+    closeChatbot();
+    const founderScreen = document.getElementById('founderProfileScreen');
+    if (founderScreen) founderScreen.classList.add('active');
+    loadShareCounts();
+    const shareLinkSpan = document.getElementById('founderShareLink');
+    if (shareLinkSpan) shareLinkSpan.textContent = getFounderShareLink();
+    trackFounderView();
+}
+
+function closeFounderProfile() {
+    const founderScreen = document.getElementById('founderProfileScreen');
+    if (founderScreen) founderScreen.classList.remove('active');
+    openChatbot();
+}
 function openImageModal() {
     const img = document.querySelector('.founder-avatar img');
     if (!img) return;
@@ -1246,11 +1256,6 @@ function closeImageModal(event) {
     if (event.target === document.getElementById('imageModal') || event.target.classList.contains('close-modal')) {
         document.getElementById('imageModal').classList.remove('active');
     }
-}
-function closeFounderProfile() {
-    const founderScreen = document.getElementById('founderProfileScreen');
-    if (founderScreen) founderScreen.classList.remove('active');
-    openChatbot();
 }
 function contactDeveloper() {
     window.open('https://app.fastbots.ai/embed/cmillclid07mep81pmwkjqyq6', '_blank');
@@ -1282,10 +1287,7 @@ async function loadPendingDeliveries() {
 }
 
 async function approveDeliveryPerson(userId) {
-    if (!userId) {
-        showToast('معرف المندوب غير صحيح', 'error');
-        return;
-    }
+    if (!userId) { showToast('معرف المندوب غير صحيح', 'error'); return; }
     showLoading(true);
     try {
         const { data: deliveryData, error: fetchError } = await supabaseClient
@@ -1294,15 +1296,9 @@ async function approveDeliveryPerson(userId) {
             .eq('id', userId)
             .maybeSingle();
         if (fetchError) throw fetchError;
-        if (!deliveryData) {
-            showToast('المندوب غير موجود', 'error');
-            return;
-        }
+        if (!deliveryData) { showToast('المندوب غير موجود', 'error'); return; }
 
-        const updates = {
-            status: 'approved',
-            updated_at: new Date().toISOString()
-        };
+        const updates = { status: 'approved', updated_at: new Date().toISOString() };
         const { data, error: updateError } = await supabaseClient
             .from('user_data')
             .update(updates)
@@ -1311,10 +1307,7 @@ async function approveDeliveryPerson(userId) {
             .maybeSingle();
 
         if (updateError) throw updateError;
-        if (!data) {
-            showToast('فشل تحديث بيانات المندوب', 'error');
-            return;
-        }
+        if (!data) { showToast('فشل تحديث بيانات المندوب', 'error'); return; }
 
         await sendNotification(
             userId,
@@ -1341,9 +1334,7 @@ async function approveDeliveryPerson(userId) {
     } catch(err) {
         console.error('❌ خطأ في قبول المندوب:', err);
         showToast(err.message || 'حدث خطأ أثناء قبول المندوب', 'error');
-    } finally {
-        showLoading(false);
-    }
+    } finally { showLoading(false); }
 }
 
 async function rejectDeliveryPerson(userId) {
@@ -1356,22 +1347,180 @@ async function rejectDeliveryPerson(userId) {
         if (typeof displayAllDeliveryPersons === 'function') await displayAllDeliveryPersons();
     } catch(err) {
         showToast(err.message, 'error');
-    } finally {
-        showLoading(false);
-    }
+    } finally { showLoading(false); }
 }
 
 // ============================================================
 // إشعارات واشتراكات
 // ============================================================
+
+// ========== إشعارات النظام (تظهر على الهاتف حتى لو كان التطبيق مغلقاً) ==========
+const APP_ICON_URL = 'https://i.ibb.co/XktM4crn/1767120438295.png';
+
+// طلب إذن عرض الإشعارات من المتصفح
+async function requestNotificationPermission() {
+    if (!('Notification' in window)) {
+        console.warn('إشعارات النظام غير مدعومة في هذا المتصفح');
+        return false;
+    }
+    if (Notification.permission === 'granted') return true;
+    if (Notification.permission === 'denied') {
+        console.warn('تم رفض إذن الإشعارات من قبل المستخدم');
+        return false;
+    }
+    try {
+        const permission = await Notification.requestPermission();
+        return permission === 'granted';
+    } catch (err) {
+        console.warn('فشل طلب إذن الإشعارات:', err);
+        return false;
+    }
+}
+
+// عرض إشعار نظام على الجهاز الحالي
+function showSystemNotification(title = 'Misar Systems', message = 'لديك إشعار جديد', data = {}) {
+    try {
+        if (!appState.notificationsEnabled) return;
+        if (!('Notification' in window)) return;
+        if (Notification.permission !== 'granted') return;
+
+        const url = data.url || (window.location.origin + window.location.pathname);
+        const notification = new Notification(title, {
+            body: message,
+            icon: data.icon || APP_ICON_URL,
+            badge: APP_ICON_URL,
+            tag: data.tag || 'misar-notification',
+            vibrate: [200, 100, 200],
+            data: { url }
+        });
+
+        notification.onclick = function() {
+            try {
+                window.focus();
+                notification.close();
+                if (data.url) window.location.href = data.url;
+            } catch (e) { window.open(url, '_blank'); }
+        };
+
+        // إغلاق تلقائي بعد 10 ثوانٍ
+        setTimeout(() => notification.close(), 10000);
+    } catch (err) {
+        console.warn('تعذّر عرض إشعار النظام:', err);
+    }
+}
+
+// تسجيل خدمة الإشعارات (طلب الإذن + تثبيت Service Worker)
+async function setupSystemNotifications() {
+    if (!('Notification' in window)) return false;
+    const granted = await requestNotificationPermission();
+    if (!granted) return false;
+    // التأكد من تسجيل Service Worker ليدعم الإشعارات حتى مع إغلاق التطبيق
+if ('serviceWorker' in navigator && !appState.swRegistration) {
+        try {
+            const reg = await navigator.serviceWorker.ready;
+            appState.swRegistration = reg;
+        } catch (e) {
+            console.warn('لا يمكن الوصول إلى Service Worker:', e);
+        }
+    }
+    return true;
+}
+
+// ============================================================
+// إعدادات الإشعارات (تفعيل/تعطيل إشعارات النظام)
+// ============================================================
+function showNotificationSettingsModal() {
+    const modal = document.getElementById('notificationSettingsModal');
+    if (modal) modal.classList.add('active');
+    const toggle = document.getElementById('notificationsToggle');
+    if (toggle) toggle.checked = !!appState.notificationsEnabled;
+    updateNotificationSettingsStatus();
+}
+
+function updateNotificationSettingsStatus() {
+    const statusEl = document.getElementById('notificationSettingsStatus');
+    if (!statusEl) return;
+    const supported = 'Notification' in window;
+    if (!supported) {
+        statusEl.textContent = 'إشعارات النظام غير مدعومة في هذا المتصفح';
+        statusEl.style.color = '#e53935';
+        return;
+    }
+    if (!appState.notificationsEnabled) {
+        statusEl.textContent = 'إشعارات النظام معطلة';
+        statusEl.style.color = '#e53935';
+        return;
+    }
+    if (Notification.permission === 'granted') {
+        statusEl.textContent = 'مفعلة — ستظهر الإشعارات على جهازك';
+        statusEl.style.color = '#2e7d32';
+    } else if (Notification.permission === 'denied') {
+        statusEl.textContent = 'تم رفض الإذن من المتصفح. فعّل الإذن من إعدادات المتصفح.';
+        statusEl.style.color = '#e53935';
+    } else {
+        statusEl.textContent = 'لم يتم طلب إذن الإشعارات بعد';
+        statusEl.style.color = '#f57f17';
+    }
+}
+
+async function toggleSystemNotifications(enabled) {
+    if (enabled) {
+        if (!('Notification' in window)) {
+            showToast('إشعارات النظام غير مدعومة في هذا المتصفح', 'error');
+            return;
+        }
+        const granted = await setupSystemNotifications();
+        if (!granted) {
+            appState.notificationsEnabled = false;
+            localStorage.setItem('misarNotificationsEnabled', 'false');
+            const toggle = document.getElementById('notificationsToggle');
+            if (toggle) toggle.checked = false;
+            updateNotificationSettingsStatus();
+            showToast('تم رفض إذن الإشعارات', 'error');
+            return;
+        }
+        appState.notificationsEnabled = true;
+        localStorage.setItem('misarNotificationsEnabled', 'true');
+        showToast('تم تفعيل إشعارات النظام', 'success');
+    } else {
+        appState.notificationsEnabled = false;
+        localStorage.setItem('misarNotificationsEnabled', 'false');
+        showToast('تم تعطيل إشعارات النظام', 'info');
+    }
+    updateNotificationSettingsStatus();
+}
+
+function sendTestNotification() {
+    if (!appState.notificationsEnabled) {
+        showToast('يرجى تفعيل الإشعارات أولاً', 'warning');
+        return;
+    }
+    if (!('Notification' in window)) {
+        showToast('إشعارات النظام غير مدعومة', 'error');
+        return;
+    }
+    if (Notification.permission !== 'granted') {
+        showToast('لم يتم منح إذن الإشعارات', 'error');
+        return;
+    }
+    showSystemNotification(
+        'Misar Systems',
+        '🎉 هذا إشعار تجريبي! الإشعارات تعمل بنجاح.',
+        { tag: 'misar-test-notification' }
+    );
+    showToast('تم إرسال إشعار تجريبي', 'success');
+}
+
 async function sendNotification(userId, title, message, data = {}) {
     try {
         await supabaseClient.from('notifications').insert({
             user_id: userId, title, message, data, created_at: new Date(), is_read: false
         });
-    } catch (error) {
-        console.warn('فشل إرسال الإشعار', error);
-    }
+        // إذا كان هذا الإشعار موجهاً للمستخدم الحالي، نعرضه كإشعار نظام فوراً
+        if (appState.user && appState.user.id === userId) {
+            showSystemNotification(title, message, data);
+        }
+    } catch (error) { console.warn('فشل إرسال الإشعار', error); }
 }
 async function loadUnreadNotificationsCount() {
     if (!appState.user) return;
@@ -1384,9 +1533,7 @@ async function loadUnreadNotificationsCount() {
                 badge.style.display = count > 0 ? 'flex' : 'none';
             }
         }
-    } catch(e) {
-        console.warn('فشل تحميل عدد الإشعارات', e);
-    }
+    } catch(e) { console.warn('فشل تحميل عدد الإشعارات', e); }
 }
 function setupRealtimeSubscriptions() {
     if (!appState.user) return;
@@ -1409,8 +1556,10 @@ function setupRealtimeSubscriptions() {
     appState.notificationsSubscription = supabaseClient.channel('notifications-channel')
         .on('postgres_changes', {
             event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${appState.user.id}`
-        }, (payload) => {
+}, (payload) => {
             showToast(payload.new.title, 'info');
+            // عرض إشعار النظام أيضاً (يظهر حتى عند تصغير التطبيق أو إغلاقه)
+            showSystemNotification(payload.new.title, payload.new.message, payload.new.data || {});
             loadUnreadNotificationsCount();
         }).subscribe();
 }
@@ -1474,7 +1623,16 @@ function showScreen(screenId) {
         if (clearSearch) clearSearch.style.display = 'none';
         if (typeof loadMarketProducts === 'function') loadMarketProducts();
     }
-    if (screenId === 'profileScreen') updateProfileLocation();
+    if (screenId === 'profileScreen') {
+        updateProfileLocation();
+        // تحديث عداد عدد الطلبات في بطاقة "طلبات" بالملف الشخصي
+        if (appState.user && typeof loadBuyerOrdersWithTimeline === 'function') {
+            loadBuyerOrdersWithTimeline();
+        } else {
+            const profileOrdersCountEl = document.getElementById('profileOrdersCount');
+            if (profileOrdersCountEl) profileOrdersCountEl.textContent = '0';
+        }
+    }
     if (screenId === 'editProfileScreen' && appState.user) updateProfileLocation();
     if (screenId === 'servicesScreen') {
         if (typeof loadServices === 'function') loadServices();
@@ -1579,7 +1737,7 @@ function getBotResponse(msg) {
 }
 
 // ============================================================
-// دوال الأمان
+// دوال الأمان (تغيير كلمة المرور، إعدادات الأمان)
 // ============================================================
 function showChangePasswordModal() {
     if (!appState.user) { showToast('يجب تسجيل الدخول أولاً', 'warning'); return; }
@@ -1614,61 +1772,56 @@ function saveSecuritySettings() {
     closeModal('securityModal');
 }
 
-// ===================// ============================================================
-// دوال لوحة تحكم المؤسس (Founder Dashboard)
+// ============================================================
+// دوال إدارة المنتجات من المؤسس (تم نقلها إلى admin-products.js)
+// ============================================================
+// يتم تعريفها في admin-products.js
+
+// ============================================================
+// دوال إدارة المناديب (تم نقلها إلى admin-couriers.js)
+// ============================================================
+// يتم تعريفها في admin-couriers.js
+
+// ============================================================
+// دوال إدارة العملاء والبائعين (تم نقلها إلى admin-users.js)
+// ============================================================
+// يتم تعريفها في admin-users.js
+
+// ============================================================
+// دوال إدارة العقارات (تم نقلها إلى admin-properties.js)
+// ============================================================
+// يتم تعريفها في admin-properties.js
+
+// ============================================================
+// دوال إدارة الخدمات (تم نقلها إلى admin-services.js)
+// ============================================================
+// يتم تعريفها في admin-services.js
+
+// ============================================================
+// دوال إدارة الطلبات (تم نقلها إلى admin-orders.js)
+// ============================================================
+// يتم تعريفها في admin-orders.js
+
+// ============================================================
+// دوال إدارة البلاغات (تم نقلها إلى admin-reports.js)
+// ============================================================
+// يتم تعريفها في admin-reports.js
+
+// ============================================================
+// دوال سجل النشاط (تم نقلها إلى admin-logs.js)
+// ============================================================
+// يتم تعريفها في admin-logs.js
+
+// ============================================================
+// دوال الإعدادات والإشعارات الجماعية (تم نقلها إلى admin-settings.js)
+// ============================================================
+// يتم تعريفها في admin-settings.js
+
+// ============================================================
+// دوال CRUD الأساسية للمؤسس (مضافة حديثاً)
 // ============================================================
 
-// ====== الإحصائيات ======
-async function getFounderStats() {
-    try {
-        const { data: users } = await supabaseClient.from('user_data').select('account_type, status');
-        const totalUsers = users?.length || 0;
-        const clients = users?.filter(u => u.account_type === 'client').length || 0;
-        const sellers = users?.filter(u => u.account_type === 'seller').length || 0;
-        const deliveries = users?.filter(u => u.account_type === 'delivery').length || 0;
-        const approvedDeliveries = users?.filter(u => u.account_type === 'delivery' && u.status === 'approved').length || 0;
-        const pendingDeliveries = users?.filter(u => u.account_type === 'delivery' && u.status === 'pending').length || 0;
-        const suspendedDeliveries = users?.filter(u => u.account_type === 'delivery' && u.status === 'suspended').length || 0;
-
-        const { data: orders } = await supabaseClient.from('orders').select('status');
-        const totalOrders = orders?.length || 0;
-        const newOrders = orders?.filter(o => o.status === 'pending').length || 0;
-        const inDeliveryOrders = orders?.filter(o => o.status === 'in_delivery').length || 0;
-        const completedOrders = orders?.filter(o => o.status === 'delivered').length || 0;
-
-        const { data: products } = await supabaseClient.from('products').select('id');
-        const totalProducts = products?.length || 0;
-
-        const { data: properties } = await supabaseClient.from('properties').select('id');
-        const totalProperties = properties?.length || 0;
-
-        const totalServices = appState.services?.length || 0;
-        const totalStores = sellers;
-
-        return {
-            totalUsers,
-            clients,
-            sellers,
-            deliveries,
-            approvedDeliveries,
-            pendingDeliveries,
-            suspendedDeliveries,
-            totalOrders,
-            newOrders,
-            inDeliveryOrders,
-            completedOrders,
-            totalProducts,
-            totalProperties,
-            totalServices,
-            totalStores
-        };
-    } catch (err) {
-        console.error('Error getting founder stats:', err);
-        return {};
-    }
-}
-
-// ====== المناديب ======
+// ----- المناديب -----
 async function getAllDeliveries() {
     const { data, error } = await supabaseClient
         .from('user_data')
@@ -1703,7 +1856,7 @@ async function deleteDelivery(userId) {
     return data;
 }
 
-// ====== العملاء ======
+// ----- العملاء -----
 async function getAllClients() {
     const { data, error } = await supabaseClient
         .from('user_data')
@@ -1738,7 +1891,7 @@ async function deleteClient(userId) {
     return data;
 }
 
-// ====== البائعين ======
+// ----- البائعين -----
 async function getAllSellers() {
     const { data, error } = await supabaseClient
         .from('user_data')
@@ -1746,6 +1899,7 @@ async function getAllSellers() {
         .eq('account_type', 'seller')
         .order('created_at', { ascending: false });
     if (error) throw error;
+    // إضافة إحصائيات إضافية (عدد المنتجات، الطلبات، التقييم)
     for (let seller of data) {
         const { count: productCount } = await supabaseClient
             .from('products')
@@ -1781,7 +1935,7 @@ async function updateSellerStatus(userId, status) {
     return data;
 }
 
-// ====== المنتجات (إدارة المؤسس) ======
+// ----- المنتجات (إدارة المؤسس) -----
 async function getAllProductsAdmin() {
     const { data, error } = await supabaseClient
         .from('products')
@@ -1804,6 +1958,7 @@ async function updateProductStatusAdmin(productId, status) {
 }
 
 async function deleteProductAdmin(productId) {
+    // حذف نهائي أو وضع حالة محذوف
     const { data, error } = await supabaseClient
         .from('products')
         .update({ status: 'deleted', updated_at: new Date() })
@@ -1815,7 +1970,7 @@ async function deleteProductAdmin(productId) {
     return data;
 }
 
-// ====== العقارات ======
+// ----- العقارات -----
 async function getAllProperties() {
     const { data, error } = await supabaseClient
         .from('properties')
@@ -1860,13 +2015,14 @@ async function deleteProperty(propertyId) {
     return data;
 }
 
-// ====== الخدمات ======
+// ----- الخدمات -----
 async function getAllServices() {
     const { data, error } = await supabaseClient
         .from('services')
         .select('*')
         .order('created_at', { ascending: false });
     if (!error && data) return data;
+    // fallback على الخدمات المحلية في appState
     return appState.services || [];
 }
 
@@ -1893,7 +2049,7 @@ async function deleteService(serviceId) {
     return data;
 }
 
-// ====== الطلبات (إدارة المؤسس) ======
+// ----- الطلبات (إدارة المؤسس) -----
 async function getAllOrdersAdmin() {
     const { data, error } = await supabaseClient
         .from('orders')
@@ -1915,7 +2071,7 @@ async function updateOrderStatusAdmin(orderId, status) {
     return data;
 }
 
-// ====== البلاغات ======
+// ----- البلاغات -----
 async function getAllReports() {
     const { data, error } = await supabaseClient
         .from('reports')
@@ -1937,7 +2093,7 @@ async function updateReportStatus(reportId, status) {
     return data;
 }
 
-// ====== سجل النشاط ======
+// ----- سجل النشاط -----
 async function logActivity(adminId, actionType, details = {}) {
     try {
         await supabaseClient.from('activity_logs').insert({
@@ -1946,9 +2102,7 @@ async function logActivity(adminId, actionType, details = {}) {
             details,
             created_at: new Date()
         });
-    } catch (err) {
-        console.warn('Failed to log activity:', err);
-    }
+    } catch (err) { console.warn('Failed to log activity:', err); }
 }
 
 async function getAllActivityLogs() {
@@ -1960,7 +2114,7 @@ async function getAllActivityLogs() {
     return data || [];
 }
 
-// ====== الإشعارات الجماعية ======
+// ----- الإشعارات الجماعية -----
 async function sendBulkNotification(recipientType, title, message, specificEmail = null) {
     let userIds = [];
     if (recipientType === 'all') {
@@ -1987,7 +2141,7 @@ async function sendBulkNotification(recipientType, title, message, specificEmail
     return userIds.length;
 }
 
-// ====== الإعدادات ======
+// ----- الإعدادات -----
 async function getAppSettings() {
     const { data, error } = await supabaseClient
         .from('app_settings')
@@ -2005,117 +2159,8 @@ async function saveAppSettings(settings) {
     await logActivity(appState.user.id, 'update_app_settings', { count: settings.length });
 }
 
-// ====== دوال مساعدة للواجهة ======
-function renderStatsGrid(stats) {
-    const container = document.getElementById('founderStatsGrid');
-    if (!container) return;
-    const items = [
-        { icon: 'fas fa-users', label: 'إجمالي المستخدمين', value: stats.totalUsers || 0 },
-        { icon: 'fas fa-user', label: 'العملاء', value: stats.clients || 0 },
-        { icon: 'fas fa-store', label: 'البائعين', value: stats.sellers || 0 },
-        { icon: 'fas fa-truck', label: 'المناديب', value: stats.deliveries || 0 },
-        { icon: 'fas fa-check-circle', label: 'مندوب معتمد', value: stats.approvedDeliveries || 0 },
-        { icon: 'fas fa-clock', label: 'مندوب قيد المراجعة', value: stats.pendingDeliveries || 0 },
-        { icon: 'fas fa-ban', label: 'مندوب موقوف', value: stats.suspendedDeliveries || 0 },
-        { icon: 'fas fa-shopping-cart', label: 'إجمالي الطلبات', value: stats.totalOrders || 0 },
-        { icon: 'fas fa-plus-circle', label: 'طلبات جديدة', value: stats.newOrders || 0 },
-        { icon: 'fas fa-truck', label: 'قيد التوصيل', value: stats.inDeliveryOrders || 0 },
-        { icon: 'fas fa-check-double', label: 'مكتملة', value: stats.completedOrders || 0 },
-        { icon: 'fas fa-store-alt', label: 'إجمالي المتاجر', value: stats.totalStores || 0 },
-        { icon: 'fas fa-boxes', label: 'إجمالي المنتجات', value: stats.totalProducts || 0 },
-        { icon: 'fas fa-building', label: 'إجمالي العقارات', value: stats.totalProperties || 0 },
-        { icon: 'fas fa-concierge-bell', label: 'إجمالي الخدمات', value: stats.totalServices || 0 },
-    ];
-    container.innerHTML = items.map(item => `
-        <div class="stat-card-founder">
-            <div class="stat-icon"><i class="${item.icon}"></i></div>
-            <div class="stat-number">${item.value}</div>
-            <div class="stat-label">${item.label}</div>
-        </div>
-    `).join('');
-}
-
-async function refreshFounderDashboard() {
-    if (!appState.user || appState.userData.account_type !== 'founder') return;
-    showLoading(true);
-    try {
-        const stats = await getFounderStats();
-        renderStatsGrid(stats);
-        const activeTab = document.querySelector('.founder-tab.active');
-        if (activeTab) {
-            const tabId = activeTab.dataset.tab;
-            switch (tabId) {
-                case 'deliveries': loadDeliveriesTable(); break;
-                case 'customers': loadCustomersTable(); break;
-                case 'sellers': loadSellersTable(); break;
-                case 'products': loadProductsTableAdmin(); break;
-                case 'properties': loadPropertiesTable(); break;
-                case 'services': loadServicesTableAdmin(); break;
-                case 'orders': loadOrdersTableAdmin(); break;
-                case 'reports': loadReportsTable(); break;
-                case 'logs': loadLogsTable(); break;
-                case 'settings': loadSettingsForm(); break;
-            }
-        }
-        await loadFounderStats();
-    } catch (err) {
-        showToast(err.message, 'error');
-    } finally {
-        showLoading(false);
-    }
-}
-
-window.switchFounderTab = function(tabId) {
-    document.querySelectorAll('.founder-tab').forEach(tab => tab.classList.remove('active'));
-    document.querySelector(`.founder-tab[data-tab="${tabId}"]`).classList.add('active');
-    document.querySelectorAll('.founder-tab-panel').forEach(panel => panel.classList.remove('active'));
-    document.getElementById(`tab-${tabId}`).classList.add('active');
-    switch (tabId) {
-        case 'dashboard': refreshFounderDashboard(); break;
-        case 'deliveries': loadDeliveriesTable(); break;
-        case 'customers': loadCustomersTable(); break;
-        case 'sellers': loadSellersTable(); break;
-        case 'products': loadProductsTableAdmin(); break;
-        case 'properties': loadPropertiesTable(); break;
-        case 'services': loadServicesTableAdmin(); break;
-        case 'orders': loadOrdersTableAdmin(); break;
-        case 'reports': loadReportsTable(); break;
-        case 'logs': loadLogsTable(); break;
-        case 'settings': loadSettingsForm(); break;
-    }
-};
-
-// تصدير الدوال الجديدة
-window.getFounderStats = getFounderStats;
-window.getAllDeliveries = getAllDeliveries;
-window.updateDeliveryStatus = updateDeliveryStatus;
-window.deleteDelivery = deleteDelivery;
-window.getAllClients = getAllClients;
-window.updateClientStatus = updateClientStatus;
-window.deleteClient = deleteClient;
-window.getAllSellers = getAllSellers;
-window.updateSellerStatus = updateSellerStatus;
-window.getAllProductsAdmin = getAllProductsAdmin;
-window.updateProductStatusAdmin = updateProductStatusAdmin;
-window.deleteProductAdmin = deleteProductAdmin;
-window.getAllProperties = getAllProperties;
-window.saveProperty = saveProperty;
-window.updatePropertyStatus = updatePropertyStatus;
-window.deleteProperty = deleteProperty;
-window.getAllServices = getAllServices;
-window.saveService = saveService;
-window.deleteService = deleteService;
-window.getAllOrdersAdmin = getAllOrdersAdmin;
-window.updateOrderStatusAdmin = updateOrderStatusAdmin;
-window.getAllReports = getAllReports;
-window.updateReportStatus = updateReportStatus;
-window.logActivity = logActivity;
-window.getAllActivityLogs = getAllActivityLogs;
-window.sendBulkNotification = sendBulkNotification;
-window.getAppSettings = getAppSettings;
-window.saveAppSettings = saveAppSettings;
-window.renderStatsGrid = renderStatsGrid;
-window.refreshFounderDashboard = refreshFounderDashboard;
+// ============================================================
+// تصدير جميع الدوال العامة
 // ============================================================
 window.supabaseClient = supabaseClient;
 window.appState = appState;
@@ -2142,6 +2187,7 @@ window.showLoading = showLoading;
 window.showToast = showToast;
 window.escapeHTML = escapeHTML;
 window.signInWithGoogle = signInWithGoogle;
+window.applyPendingAccountType = applyPendingAccountType;
 window.signInWithEmail = signInWithEmail;
 window.signUpWithEmail = signUpWithEmail;
 window.logout = logout;
@@ -2178,7 +2224,45 @@ window.saveLocation = saveLocation;
 window.loadUnreadNotificationsCount = loadUnreadNotificationsCount;
 window.setupRealtimeSubscriptions = setupRealtimeSubscriptions;
 window.sendNotification = sendNotification;
+window.requestNotificationPermission = requestNotificationPermission;
+window.showSystemNotification = showSystemNotification;
+window.setupSystemNotifications = setupSystemNotifications;
+window.showNotificationSettingsModal = showNotificationSettingsModal;
+window.toggleSystemNotifications = toggleSystemNotifications;
+window.sendTestNotification = sendTestNotification;
 window.loadGlobalFounderVisibility = loadGlobalFounderVisibility;
 window.initFounderSettings = initFounderSettings;
 window.handleToggleChange = handleToggleChange;
 window.generateOTP = generateOTP;
+window.loadFounderStats = loadFounderStats;
+window.trackFounderView = trackFounderView;
+window.loadVillagesForCenter = loadVillagesForCenter;
+
+// ===== تصدير دوال المؤسس CRUD =====
+window.getAllDeliveries = getAllDeliveries;
+window.updateDeliveryStatus = updateDeliveryStatus;
+window.deleteDelivery = deleteDelivery;
+window.getAllClients = getAllClients;
+window.updateClientStatus = updateClientStatus;
+window.deleteClient = deleteClient;
+window.getAllSellers = getAllSellers;
+window.updateSellerStatus = updateSellerStatus;
+window.getAllProductsAdmin = getAllProductsAdmin;
+window.updateProductStatusAdmin = updateProductStatusAdmin;
+window.deleteProductAdmin = deleteProductAdmin;
+window.getAllProperties = getAllProperties;
+window.saveProperty = saveProperty;
+window.updatePropertyStatus = updatePropertyStatus;
+window.deleteProperty = deleteProperty;
+window.getAllServices = getAllServices;
+window.saveService = saveService;
+window.deleteService = deleteService;
+window.getAllOrdersAdmin = getAllOrdersAdmin;
+window.updateOrderStatusAdmin = updateOrderStatusAdmin;
+window.getAllReports = getAllReports;
+window.updateReportStatus = updateReportStatus;
+window.logActivity = logActivity;
+window.getAllActivityLogs = getAllActivityLogs;
+window.sendBulkNotification = sendBulkNotification;
+window.getAppSettings = getAppSettings;
+window.saveAppSettings = saveAppSettings;

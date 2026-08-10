@@ -100,8 +100,8 @@ async function refreshFounderDashboard() {
                 case 'orders': loadOrdersTableAdmin(); break;
                 case 'reports': loadReportsTable(); break;
                 case 'logs': loadLogsTable(); break;
+                case 'banners': if (typeof refreshBannersAdmin === 'function') await refreshBannersAdmin(); break;
                 case 'settings': loadSettingsForm(); break;
-                case 'banners': loadBannersTable(); break;
             }
         }
         await loadFounderStats();
@@ -128,8 +128,8 @@ window.switchFounderTab = function(tabId) {
         case 'orders': loadOrdersTableAdmin(); break;
         case 'reports': loadReportsTable(); break;
         case 'logs': loadLogsTable(); break;
+        case 'banners': if (typeof refreshBannersAdmin === 'function') refreshBannersAdmin(); break;
         case 'settings': loadSettingsForm(); break;
-        case 'banners': loadBannersTable(); break;
     }
 };
 
