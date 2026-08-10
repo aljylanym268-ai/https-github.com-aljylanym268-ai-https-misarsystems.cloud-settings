@@ -35,9 +35,8 @@ const appState = {
     founderShares: { whatsapp:0, facebook:0, twitter:0, copy:0 },
     previousScreen: 'homeScreen',
     currentScreen: 'homeScreen',
-ordersSubscription: null,
-    notificationsSubscription: null,
-    notificationsEnabled: localStorage.getItem('misarNotificationsEnabled') !== 'false'
+    ordersSubscription: null,
+    notificationsSubscription: null
 };
 
 // ========== دوال مساعدة ==========
@@ -1353,173 +1352,11 @@ async function rejectDeliveryPerson(userId) {
 // ============================================================
 // إشعارات واشتراكات
 // ============================================================
-
-// ========== إشعارات النظام (تظهر على الهاتف حتى لو كان التطبيق مغلقاً) ==========
-const APP_ICON_URL = 'https://i.ibb.co/XktM4crn/1767120438295.png';
-
-// طلب إذن عرض الإشعارات من المتصفح
-async function requestNotificationPermission() {
-    if (!('Notification' in window)) {
-        console.warn('إشعارات النظام غير مدعومة في هذا المتصفح');
-        return false;
-    }
-    if (Notification.permission === 'granted') return true;
-    if (Notification.permission === 'denied') {
-        console.warn('تم رفض إذن الإشعارات من قبل المستخدم');
-        return false;
-    }
-    try {
-        const permission = await Notification.requestPermission();
-        return permission === 'granted';
-    } catch (err) {
-        console.warn('فشل طلب إذن الإشعارات:', err);
-        return false;
-    }
-}
-
-// عرض إشعار نظام على الجهاز الحالي
-function showSystemNotification(title = 'Misar Systems', message = 'لديك إشعار جديد', data = {}) {
-    try {
-        if (!appState.notificationsEnabled) return;
-        if (!('Notification' in window)) return;
-        if (Notification.permission !== 'granted') return;
-
-        const url = data.url || (window.location.origin + window.location.pathname);
-        const notification = new Notification(title, {
-            body: message,
-            icon: data.icon || APP_ICON_URL,
-            badge: APP_ICON_URL,
-            tag: data.tag || 'misar-notification',
-            vibrate: [200, 100, 200],
-            data: { url }
-        });
-
-        notification.onclick = function() {
-            try {
-                window.focus();
-                notification.close();
-                if (data.url) window.location.href = data.url;
-            } catch (e) { window.open(url, '_blank'); }
-        };
-
-        // إغلاق تلقائي بعد 10 ثوانٍ
-        setTimeout(() => notification.close(), 10000);
-    } catch (err) {
-        console.warn('تعذّر عرض إشعار النظام:', err);
-    }
-}
-
-// تسجيل خدمة الإشعارات (طلب الإذن + تثبيت Service Worker)
-async function setupSystemNotifications() {
-    if (!('Notification' in window)) return false;
-    const granted = await requestNotificationPermission();
-    if (!granted) return false;
-    // التأكد من تسجيل Service Worker ليدعم الإشعارات حتى مع إغلاق التطبيق
-if ('serviceWorker' in navigator && !appState.swRegistration) {
-        try {
-            const reg = await navigator.serviceWorker.ready;
-            appState.swRegistration = reg;
-        } catch (e) {
-            console.warn('لا يمكن الوصول إلى Service Worker:', e);
-        }
-    }
-    return true;
-}
-
-// ============================================================
-// إعدادات الإشعارات (تفعيل/تعطيل إشعارات النظام)
-// ============================================================
-function showNotificationSettingsModal() {
-    const modal = document.getElementById('notificationSettingsModal');
-    if (modal) modal.classList.add('active');
-    const toggle = document.getElementById('notificationsToggle');
-    if (toggle) toggle.checked = !!appState.notificationsEnabled;
-    updateNotificationSettingsStatus();
-}
-
-function updateNotificationSettingsStatus() {
-    const statusEl = document.getElementById('notificationSettingsStatus');
-    if (!statusEl) return;
-    const supported = 'Notification' in window;
-    if (!supported) {
-        statusEl.textContent = 'إشعارات النظام غير مدعومة في هذا المتصفح';
-        statusEl.style.color = '#e53935';
-        return;
-    }
-    if (!appState.notificationsEnabled) {
-        statusEl.textContent = 'إشعارات النظام معطلة';
-        statusEl.style.color = '#e53935';
-        return;
-    }
-    if (Notification.permission === 'granted') {
-        statusEl.textContent = 'مفعلة — ستظهر الإشعارات على جهازك';
-        statusEl.style.color = '#2e7d32';
-    } else if (Notification.permission === 'denied') {
-        statusEl.textContent = 'تم رفض الإذن من المتصفح. فعّل الإذن من إعدادات المتصفح.';
-        statusEl.style.color = '#e53935';
-    } else {
-        statusEl.textContent = 'لم يتم طلب إذن الإشعارات بعد';
-        statusEl.style.color = '#f57f17';
-    }
-}
-
-async function toggleSystemNotifications(enabled) {
-    if (enabled) {
-        if (!('Notification' in window)) {
-            showToast('إشعارات النظام غير مدعومة في هذا المتصفح', 'error');
-            return;
-        }
-        const granted = await setupSystemNotifications();
-        if (!granted) {
-            appState.notificationsEnabled = false;
-            localStorage.setItem('misarNotificationsEnabled', 'false');
-            const toggle = document.getElementById('notificationsToggle');
-            if (toggle) toggle.checked = false;
-            updateNotificationSettingsStatus();
-            showToast('تم رفض إذن الإشعارات', 'error');
-            return;
-        }
-        appState.notificationsEnabled = true;
-        localStorage.setItem('misarNotificationsEnabled', 'true');
-        showToast('تم تفعيل إشعارات النظام', 'success');
-    } else {
-        appState.notificationsEnabled = false;
-        localStorage.setItem('misarNotificationsEnabled', 'false');
-        showToast('تم تعطيل إشعارات النظام', 'info');
-    }
-    updateNotificationSettingsStatus();
-}
-
-function sendTestNotification() {
-    if (!appState.notificationsEnabled) {
-        showToast('يرجى تفعيل الإشعارات أولاً', 'warning');
-        return;
-    }
-    if (!('Notification' in window)) {
-        showToast('إشعارات النظام غير مدعومة', 'error');
-        return;
-    }
-    if (Notification.permission !== 'granted') {
-        showToast('لم يتم منح إذن الإشعارات', 'error');
-        return;
-    }
-    showSystemNotification(
-        'Misar Systems',
-        '🎉 هذا إشعار تجريبي! الإشعارات تعمل بنجاح.',
-        { tag: 'misar-test-notification' }
-    );
-    showToast('تم إرسال إشعار تجريبي', 'success');
-}
-
 async function sendNotification(userId, title, message, data = {}) {
     try {
         await supabaseClient.from('notifications').insert({
             user_id: userId, title, message, data, created_at: new Date(), is_read: false
         });
-        // إذا كان هذا الإشعار موجهاً للمستخدم الحالي، نعرضه كإشعار نظام فوراً
-        if (appState.user && appState.user.id === userId) {
-            showSystemNotification(title, message, data);
-        }
     } catch (error) { console.warn('فشل إرسال الإشعار', error); }
 }
 async function loadUnreadNotificationsCount() {
@@ -1556,10 +1393,8 @@ function setupRealtimeSubscriptions() {
     appState.notificationsSubscription = supabaseClient.channel('notifications-channel')
         .on('postgres_changes', {
             event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${appState.user.id}`
-}, (payload) => {
+        }, (payload) => {
             showToast(payload.new.title, 'info');
-            // عرض إشعار النظام أيضاً (يظهر حتى عند تصغير التطبيق أو إغلاقه)
-            showSystemNotification(payload.new.title, payload.new.message, payload.new.data || {});
             loadUnreadNotificationsCount();
         }).subscribe();
 }
@@ -1623,16 +1458,7 @@ function showScreen(screenId) {
         if (clearSearch) clearSearch.style.display = 'none';
         if (typeof loadMarketProducts === 'function') loadMarketProducts();
     }
-    if (screenId === 'profileScreen') {
-        updateProfileLocation();
-        // تحديث عداد عدد الطلبات في بطاقة "طلبات" بالملف الشخصي
-        if (appState.user && typeof loadBuyerOrdersWithTimeline === 'function') {
-            loadBuyerOrdersWithTimeline();
-        } else {
-            const profileOrdersCountEl = document.getElementById('profileOrdersCount');
-            if (profileOrdersCountEl) profileOrdersCountEl.textContent = '0';
-        }
-    }
+    if (screenId === 'profileScreen') updateProfileLocation();
     if (screenId === 'editProfileScreen' && appState.user) updateProfileLocation();
     if (screenId === 'servicesScreen') {
         if (typeof loadServices === 'function') loadServices();
@@ -2224,12 +2050,6 @@ window.saveLocation = saveLocation;
 window.loadUnreadNotificationsCount = loadUnreadNotificationsCount;
 window.setupRealtimeSubscriptions = setupRealtimeSubscriptions;
 window.sendNotification = sendNotification;
-window.requestNotificationPermission = requestNotificationPermission;
-window.showSystemNotification = showSystemNotification;
-window.setupSystemNotifications = setupSystemNotifications;
-window.showNotificationSettingsModal = showNotificationSettingsModal;
-window.toggleSystemNotifications = toggleSystemNotifications;
-window.sendTestNotification = sendTestNotification;
 window.loadGlobalFounderVisibility = loadGlobalFounderVisibility;
 window.initFounderSettings = initFounderSettings;
 window.handleToggleChange = handleToggleChange;
