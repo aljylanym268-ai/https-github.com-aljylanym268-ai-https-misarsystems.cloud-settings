@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" type="image/x-icon" href="https://i.ibb.co/XktM4crn/1767120438295.png">
     <link rel="stylesheet" href="style.css">
+    	    <link rel="stylesheet" href="banners.css">
     <meta name="google-site-verification" content="jpQbVa-GjiReP-X6Lf-sl5nripN0wcmPfttqgzKRMWk" />
 </head>
 <body>
@@ -209,15 +210,29 @@
                 <div class="user-avatar" id="welcomeAvatar" onclick="showScreen('editProfileScreen')"><i class="fas fa-user"></i></div>
             </div>
         </div>
-        <div class="quick-actions">
-            <div class="section-title"><span>إجراءات سريعة</span><a href="#" style="font-size:0.9rem; color:#1a237e;">عرض الكل</a></div>
-            <div class="actions-grid">
-                <a href="#" class="action-btn" onclick="showScreen('marketScreen')"><div class="action-icon"><i class="fas fa-shopping-bag"></i></div><span class="action-label">التسوق</span></a>
-                <a href="#" class="action-btn" onclick="showScreen('servicesScreen')"><div class="action-icon"><i class="fas fa-tools"></i></div><span class="action-label">الخدمات</span></a>
-                <a href="#" class="action-btn" onclick="showScreen('ordersScreen')"><div class="action-icon"><i class="fas fa-shopping-cart"></i></div><span class="action-label">طلباتي</span></a>
-                <a href="#" class="action-btn" onclick="showScreen('walletScreen')"><div class="action-icon"><i class="fas fa-wallet"></i></div><span class="action-label">المحفظة</span></a>
+        <!-- ========== Hero Banners Slider (replaces quick actions) ========== -->
+        <div class="hero-slider" id="heroSlider">
+            <div class="hero-slides" id="heroSlides" aria-live="polite"></div>
+            <button class="hero-arrow prev" id="heroPrev" aria-label="السابق">‹</button>
+            <button class="hero-arrow next" id="heroNext" aria-label="التالي">›</button>
+            <div class="hero-dots" id="heroDots" role="tablist" aria-label="اختيارات الإعلان"></div>
+        </div>
+
+        <!-- Banner Detail Modal (vertical/fullscreen) -->
+        <div id="bannerDetailModal" class="banner-detail-modal" aria-hidden="true">
+            <div class="banner-detail-card" role="dialog" aria-modal="true" aria-labelledby="bannerDetailTitle">
+                <div id="bannerDetailMedia" class="banner-detail-media"></div>
+                <div class="banner-detail-content">
+                    <h3 id="bannerDetailTitle" class="banner-detail-title"></h3>
+                    <div id="bannerDetailDesc" class="banner-detail-desc"></div>
+                    <div class="banner-detail-cta">
+                        <button id="bannerDetailVisit" class="btn-visit">اذهب للرابط</button>
+                        <button id="bannerDetailClose" class="btn-close">إغلاق</button>
+                    </div>
+                </div>
             </div>
         </div>
+
         <div class="categories-section">
             <div class="section-title">الأقسام الرئيسية</div>
             <div class="categories-grid">
@@ -575,6 +590,7 @@
             <button class="founder-tab" data-tab="reports" onclick="switchFounderTab('reports')"><i class="fas fa-flag"></i> البلاغات</button>
             <button class="founder-tab" data-tab="logs" onclick="switchFounderTab('logs')"><i class="fas fa-history"></i> سجل النشاط</button>
             <button class="founder-tab" data-tab="notifications" onclick="switchFounderTab('notifications')"><i class="fas fa-bell"></i> الإشعارات</button>
+            <button class="founder-tab" data-tab="banners" onclick="switchFounderTab('banners')"><i class="fas fa-image"></i> إدارة الإعلانات</button>
             <button class="founder-tab" data-tab="settings" onclick="switchFounderTab('settings')"><i class="fas fa-cog"></i> الإعدادات</button>
         </div>
 
@@ -798,6 +814,27 @@
             </div>
 
             <!-- تبويب الإعدادات -->
+            <!-- تبويب إدارة الإعلانات -->
+            <div id="tab-banners" class="founder-tab-panel">
+                <div class="founder-card">
+                    <h3>إدارة الإعلانات</h3>
+                    <div class="input-group"><label class="input-label">رفع صورة الإعلان</label><input type="file" id="bannerImageInput" accept="image/*"></div>
+                    <div class="input-group"><div class="banner-preview" id="bannerPreview"><img id="bannerImagePreviewImg" src="" alt="معاينة الإعلان" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:8px;"></div></div>
+                    <div class="input-group"><label class="input-label">العنوان</label><input type="text" id="bannerTitle" class="input-field" placeholder="عنوان الإعلان"></div>
+                    <div class="input-group"><label class="input-label">الوصف</label><textarea id="bannerDescription" class="input-field" rows="3" placeholder="وصف قصير للاعلان (اختياري)"></textarea></div>
+                    <div class="input-group"><label class="input-label">الرابط (URL)</label><input type="text" id="bannerLink" class="input-field" placeholder="https://example.com/product/123"></div>
+                    <div class="input-group"><label class="input-label">ترتيب العرض (رقم، أصغر أول)</label><input type="number" id="bannerSortOrder" class="input-field" value="0"></div>
+                    <div class="input-group"><label class="input-label">نشط</label><label class="switch"><input type="checkbox" id="bannerActive" checked><span class="slider"></span></label></div>
+                    <div style="display:flex; gap:10px; margin-top:12px;"><button class="login-btn" id="saveBannerBtn"><i class="fas fa-save"></i> حفظ الإعلان</button><button class="google-btn" id="clearBannerFormBtn">مسح النموذج</button></div>
+                </div>
+                <div style="margin-top:18px;">
+                    <h4>قائمة الإعلانات</h4>
+                    <table class="founder-table" id="bannersTable">
+                        <thead><tr><th>الصورة</th><th>العنوان</th><th>الرابط</th><th>الترتيب</th><th>نشط</th><th>الإجراءات</th></tr></thead>
+                        <tbody id="bannersTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
             <div id="tab-settings" class="founder-tab-panel">
                 <div class="founder-card">
                     <h3>إعدادات التطبيق</h3>
@@ -1047,6 +1084,8 @@
 <script src="js/admin-reports.js"></script>
 <script src="js/admin-logs.js"></script>
 <script src="js/admin-settings.js"></script>
+<script src="js/admin-banners.js"></script>
+<script src="js/banners.js"></script>
 <script src="js/products.js"></script>
 <script src="js/product.js"></script>
 <script src="js/cart.js"></script>
@@ -1289,7 +1328,8 @@
             case 'services': if (typeof loadServicesTableAdmin === 'function') loadServicesTableAdmin(); break;
             case 'orders': if (typeof loadOrdersTableAdmin === 'function') loadOrdersTableAdmin(); break;
             case 'reports': if (typeof loadReportsTable === 'function') loadReportsTable(); break;
-            case 'logs': if (typeof loadLogsTable === 'function') loadLogsTable(); break;
+case 'logs': if (typeof loadLogsTable === 'function') loadLogsTable(); break;
+            case 'banners': if (typeof refreshBannersAdmin === 'function') refreshBannersAdmin(); break;
             case 'settings': if (typeof loadSettingsForm === 'function') loadSettingsForm(); break;
         }
     };
